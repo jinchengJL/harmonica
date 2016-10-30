@@ -4,10 +4,10 @@
 open Ast
 %}
 
-%token SEMI LPAREN RPAREN LBRACE RBRACE COMMA
+%token SEMI LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET COMMA
 %token PLUS MINUS TIMES DIVIDE ASSIGN NOT
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR
-%token RETURN IF ELSE FOR WHILE INT BOOL VOID
+%token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID LIST
 %token <int> LITERAL
 %token <string> ID
 %token EOF
@@ -53,9 +53,12 @@ formal_list:
   | formal_list COMMA typ ID { ($3,$4) :: $1 }
 
 typ:
-    INT { Int }
+    INT  { Int }
   | BOOL { Bool }
   | VOID { Void }
+  | STRING { String }
+  | FLOAT { Float }
+  | LIST LBRACKET typ RBRACKET { List($3) }
 
 vdecl_list:
     /* nothing */    { [] }
