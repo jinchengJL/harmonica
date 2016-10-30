@@ -35,12 +35,12 @@ type stmt =
   | For of expr * expr * expr * stmt
   | While of expr * stmt
   | Typedef of typ * string
+  | Bind of typ * string
 
 type func_decl = {
     typ : typ;
     fname : string;
     formals : bind list;
-    locals : bind list;
     body : stmt list;
   }
 
@@ -161,20 +161,20 @@ let rec string_of_stmt = function
       "Block(\n" ^ String.concat "" (List.map string_of_stmt stmts) ^ ")\n"
   | Expr(expr) -> "Expr(" ^ string_of_expr expr ^ ")\n";
   | Return(expr) -> "Return(" ^ string_of_expr expr ^ ")\n";
-  | If(e, s, Block([])) -> "If(" ^ string_of_expr e ^ ", " ^ string_of_stmt s ^ ")"
+  | If(e, s, Block([])) -> "If(" ^ string_of_expr e ^ ", " ^ string_of_stmt s ^ ")\n"
   | If(e, s1, s2) ->  "If(" ^ string_of_expr e ^ ", " ^
-      string_of_stmt s1 ^ ", " ^ string_of_stmt s2 ^")"
+      string_of_stmt s1 ^ ", " ^ string_of_stmt s2 ^ ")\n"
   | For(e1, e2, e3, s) ->
       "For(" ^ string_of_expr e1  ^ " ; " ^ string_of_expr e2 ^ " ; " ^
-      string_of_expr e3  ^ ", " ^ string_of_stmt s ^ ")"
-  | While(e, s) -> "While(" ^ string_of_expr e ^ ", " ^ string_of_stmt s ^ ")"
-  | Typedef(t, s) -> "Typedef(" ^ string_of_typ t ^ ", " ^ s ^ ")"
+      string_of_expr e3  ^ ", " ^ string_of_stmt s ^ ")\n"
+  | While(e, s) -> "While(" ^ string_of_expr e ^ ", " ^ string_of_stmt s ^ ")\n"
+  | Typedef(t, s) -> "Typedef(" ^ string_of_typ t ^ ", " ^ s ^ ")\n"
+  | Bind(t, s) -> "Bind(" ^ string_of_typ t ^ ", " ^ s ^ ")\n"
 
 let string_of_fdecl fdecl =
   string_of_typ fdecl.typ ^ " " ^
   "FuncName(" ^ fdecl.fname ^ ")" ^ "(" ^ String.concat ", " (List.map snd fdecl.formals) ^
   ")\n{\n" ^
-  String.concat "" (List.map string_of_vdecl fdecl.locals) ^
   String.concat "" (List.map string_of_stmt fdecl.body) ^
   "}\n"
 
