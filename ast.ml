@@ -12,6 +12,8 @@ type typ =
   | String
   | Float
   | List of typ
+  | Struct of string * (typ * string) list
+  | UType of string  
                                            
 type bind = typ * string
 
@@ -32,6 +34,7 @@ type stmt =
   | If of expr * stmt * stmt
   | For of expr * expr * expr * stmt
   | While of expr * stmt
+  | Typedef of typ * string
 
 type func_decl = {
     typ : typ;
@@ -141,6 +144,18 @@ let rec string_of_expr = function
      "Call(" ^ f ^ ", " ^ String.concat ", " (List.map string_of_expr el) ^ ")"
   | Noexpr -> "Noexpr"
 
+let rec string_of_typ = function
+    Int -> "Int"
+  | Bool -> "Bool"
+  | Void -> "Void"
+  | Float -> "Float"
+  | String -> "String"
+  | List(t) -> "List(" ^ string_of_typ t ^ ")"
+  | Struct(id, vlist) -> "Struct(" ^ id ^ ", " ^ String.concat "" (List.map string_of_vdecl vlist) ^ ")"
+  | UType(id) -> "UType(" ^ id ^ ")"
+
+and string_of_vdecl (t, id) = "Vdecl(" ^ string_of_typ t ^ ", " ^ id ^ ")\n"
+
 let rec string_of_stmt = function
     Block(stmts) ->
       "Block(\n" ^ String.concat "" (List.map string_of_stmt stmts) ^ ")\n"
@@ -153,16 +168,7 @@ let rec string_of_stmt = function
       "For(" ^ string_of_expr e1  ^ " ; " ^ string_of_expr e2 ^ " ; " ^
       string_of_expr e3  ^ ", " ^ string_of_stmt s ^ ")"
   | While(e, s) -> "While(" ^ string_of_expr e ^ ", " ^ string_of_stmt s ^ ")"
-
-let rec string_of_typ = function
-    Int -> "Int"
-  | Bool -> "Bool"
-  | Void -> "Void"
-  | Float -> "Float"
-  | String -> "String"
-  | List(t) -> "List(" ^ string_of_typ t ^ ")"
-
-let string_of_vdecl (t, id) = "Vdecl(" ^ string_of_typ t ^ ", " ^ id ^ ")\n"
+  | Typedef(t, s) -> "Typedef(" ^ string_of_typ t ^ ", " ^ s ^ ")"
 
 let string_of_fdecl fdecl =
   string_of_typ fdecl.typ ^ " " ^

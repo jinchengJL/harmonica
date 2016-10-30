@@ -38,8 +38,10 @@ rule token = parse
 | "string" { STRING }
 | "void"   { VOID }
 | "list"   { LIST }
+| "struct" { STRUCT_STMT }
 | "true"   { TRUE }
 | "false"  { FALSE }
+| "typedef" { TYPEDEF }
 | ['0'-'9']+ as lxm { LITERAL(int_of_string lxm) }
 | ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm { ID(lxm) }
 | eof { EOF }
