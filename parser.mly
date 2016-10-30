@@ -37,12 +37,11 @@ decls:
  | decls fdecl { fst $1, ($2 :: snd $1) }
 
 fdecl:
-   typ ID LPAREN formals_opt RPAREN LBRACE vdecl_list stmt_list RBRACE
+   typ ID LPAREN formals_opt RPAREN LBRACE stmt_list RBRACE
      { { typ = $1;
 	 fname = $2;
 	 formals = $4;
-	 locals = List.rev $7;
-	 body = List.rev $8 } }
+	 body = List.rev $7 } }
 
 formals_opt:
     /* nothing */ { [] }
@@ -84,6 +83,7 @@ stmt:
   | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
   | STRUCT_STMT ID LBRACE vdecl_list RBRACE SEMI { Typedef(Struct($2, $4), $2) }
   | TYPEDEF typ ID SEMI { Typedef($2, $3) }
+  | typ ID SEMI { Bind($1, $2) }
 
 expr_opt:
     /* nothing */ { Noexpr }
