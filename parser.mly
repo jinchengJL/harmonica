@@ -7,7 +7,7 @@ open Ast
 %token SEMI LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET COMMA
 %token PLUS MINUS TIMES DIVIDE ASSIGN NOT
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR
-%token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID LIST
+%token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID LIST STRUCT_STMT TYPEDEF
 %token <int> LITERAL
 %token <string> ID
 %token EOF
@@ -59,6 +59,7 @@ typ:
   | STRING { String }
   | FLOAT { Float }
   | LIST LBRACKET typ RBRACKET { List($3) }
+  | ID { UType($1) }
 
 vdecl_list:
     /* nothing */    { [] }
@@ -81,6 +82,8 @@ stmt:
   | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
      { For($3, $5, $7, $9) }
   | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
+  | STRUCT_STMT ID LBRACE vdecl_list RBRACE SEMI { Typedef(Struct($2, $4), $2) }
+  | TYPEDEF typ ID SEMI { Typedef($2, $3) }
 
 expr_opt:
     /* nothing */ { Noexpr }
