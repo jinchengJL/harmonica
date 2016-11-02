@@ -25,4 +25,6 @@ int main() {
 
   c.data;
   c.func(c).pop();
+
+  f = 1.23;
 }
