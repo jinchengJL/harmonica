@@ -9,6 +9,7 @@ open Ast
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR
 %token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID LIST STRUCT_STMT TYPEDEF CHANNEL PARALLEL CHAN
 %token <int> LITERAL
+%token <float> FLOAT_LITERAL
 %token <string> ID
 %token EOF
 
@@ -95,6 +96,7 @@ expr:
     LITERAL          { Literal($1) }
   | TRUE             { BoolLit(true) }
   | FALSE            { BoolLit(false) }
+  | FLOAT_LITERAL    { FloatLit($1) }
   | ID               { Id($1) }
   | expr PLUS   expr { Binop($1, Add,   $3) }
   | expr MINUS  expr { Binop($1, Sub,   $3) }
