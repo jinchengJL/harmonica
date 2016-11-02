@@ -7,7 +7,7 @@ open Ast
 %token SEMI LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET COMMA QUOTE DOT
 %token PLUS MINUS TIMES DIVIDE ASSIGN NOT
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR
-%token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID TUPLE LIST STRUCT_STMT TYPEDEF CHANNEL PARALLEL CHAN
+%token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID TUPLE LIST STRUCT_STMT TYPEDEF CHANNEL PARALLEL CHAN LAMBDA
 %token <int> LITERAL
 %token <float> FLOAT_LITERAL
 %token <string> ID
@@ -102,11 +102,30 @@ expr_opt:
     /* nothing */ { Noexpr }
   | expr          { $1 }
 
+expr_list_opt:
+    /* nothing */ { [] }
+  | expr_list { List.rev $1 }
+
+expr_list:
+    expr { [$1] }
+  | expr_list COMMA expr { $3 :: $1 }
+
+expr_comma_list_opt:
+    /* nothing */ { [] }
+  | expr COMMA { [$1] }
+  | expr_comma_list { List.rev $1 }
+
+expr_comma_list:
+    expr COMMA expr { $3 :: [$1] }
+  | expr_comma_list COMMA expr { $3 :: $1 }
+
 expr:
     LITERAL          { Literal($1) }
   | TRUE             { BoolLit(true) }
   | FALSE            { BoolLit(false) }
   | FLOAT_LITERAL    { FloatLit($1) }
+  | LPAREN expr_comma_list_opt RPAREN { TupleLit($2) }
+  | LBRACKET expr_list_opt RBRACKET { ListLit($2) }
   | ID               { Id($1) }
   | expr PLUS   expr { Binop($1, Add,   $3) }
   | expr MINUS  expr { Binop($1, Sub,   $3) }
