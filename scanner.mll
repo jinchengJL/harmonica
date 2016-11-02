@@ -13,6 +13,8 @@ rule token = parse
 | '}'      { RBRACE }
 | ';'      { SEMI }
 | ','      { COMMA }
+| '\"'     { QUOTE }
+| '\''     { QUOTE }
 | '+'      { PLUS }
 | '-'      { MINUS }
 | '*'      { TIMES }
@@ -27,6 +29,7 @@ rule token = parse
 | "&&"     { AND }
 | "||"     { OR }
 | "!"      { NOT }
+| "."      { DOT }
 | "if"     { IF }
 | "else"   { ELSE }
 | "for"    { FOR }
@@ -43,6 +46,8 @@ rule token = parse
 | "false"  { FALSE }
 | "typedef" { TYPEDEF }
 | "channel" { CHANNEL }
+| "chan"    { CHAN }
+| "parallel" { PARALLEL }
 | ['0'-'9']+ as lxm { LITERAL(int_of_string lxm) }
 | ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm { ID(lxm) }
 | eof { EOF }

@@ -4,10 +4,10 @@
 open Ast
 %}
 
-%token SEMI LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET COMMA
+%token SEMI LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET COMMA QUOTE DOT
 %token PLUS MINUS TIMES DIVIDE ASSIGN NOT
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR
-%token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID LIST STRUCT_STMT TYPEDEF CHANNEL
+%token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID LIST STRUCT_STMT TYPEDEF CHANNEL PARALLEL CHAN
 %token <int> LITERAL
 %token <string> ID
 %token EOF
@@ -22,6 +22,7 @@ open Ast
 %left PLUS MINUS
 %left TIMES DIVIDE
 %right NOT NEG
+%left DOT
 
 %start program
 %type <Ast.program> program
@@ -107,11 +108,18 @@ expr:
   | expr GEQ    expr { Binop($1, Geq,   $3) }
   | expr AND    expr { Binop($1, And,   $3) }
   | expr OR     expr { Binop($1, Or,    $3) }
+  | expr DOT    expr { Binop($1, Member, $3) }
   | MINUS expr %prec NEG { Unop(Neg, $2) }
   | NOT expr         { Unop(Not, $2) }
   | ID ASSIGN expr   { Assign($1, $3) }
   | ID LPAREN actuals_opt RPAREN { Call($1, $3) }
+  | PARALLEL LPAREN actuals_opt RPAREN { Call("parallel", $3) }
+  | CHAN LPAREN chan_actuals_opt RPAREN { Call("chan", $3) }
   | LPAREN expr RPAREN { $2 }
+
+chan_actuals_opt:
+    typ { [StringLit(string_of_typ $1)] }
+  | typ COMMA expr { StringLit(string_of_typ $1) :: [$3] }
 
 actuals_opt:
     /* nothing */ { [] }
