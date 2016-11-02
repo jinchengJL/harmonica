@@ -31,4 +31,7 @@ int main() {
   tuple[int float] tup;
   typedef tuple[int float] TIF;
   <TIF int> func;
+
+  l = [1,2,3,4,5];
+  tup = (1, 2.67);
 }

@@ -25,6 +25,8 @@ type expr =
   | BoolLit of bool
   | StringLit of string
   | FloatLit of float
+  | TupleLit of expr list
+  | ListLit of expr list
   | Id of string
   | Binop of expr * op * expr
   | Unop of uop * expr
@@ -78,6 +80,8 @@ let rec string_of_expr = function
   | BoolLit(false) -> "BoolLit(False)"
   | StringLit(s) -> "StringLit(\"" ^ s ^ "\")"
   | FloatLit(f) -> "FloatLit(" ^ string_of_float f ^ ")"
+  | TupleLit(elist) -> "TupleLit(" ^ String.concat ", " (List.map string_of_expr elist) ^ ")"
+  | ListLit(elist) -> "ListLit(" ^ String.concat ", " (List.map string_of_expr elist) ^ ")"
   | Id(s) -> "Id(" ^ s ^ ")"
   | Binop(e1, o, e2) ->
       "Binop(" ^ string_of_expr e1 ^ ", " ^ string_of_op o ^ ", " ^ string_of_expr e2 ^ ")"
