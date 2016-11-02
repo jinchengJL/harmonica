@@ -20,4 +20,9 @@ int main() {
   ID a;
 
   channel[int] c;
+  c = chan(list[int]);
+  parallel(f, l, 0, 2, c);
+
+  c.data;
+  c.func(c).pop();
 }

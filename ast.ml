@@ -1,7 +1,7 @@
 (* Abstract Syntax Tree and functions for printing it *)
 
 type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
-          And | Or
+          And | Or | Member
 
 type uop = Neg | Not
 
@@ -21,6 +21,7 @@ type bind = typ * string
 type expr =
     Literal of int
   | BoolLit of bool
+  | StringLit of string
   | Id of string
   | Binop of expr * op * expr
   | Unop of uop * expr
@@ -62,6 +63,7 @@ let string_of_op = function
   | Geq -> "Geq"
   | And -> "And"
   | Or -> "Or"
+  | Member -> "Member"
 
 let string_of_uop = function
     Neg -> "Neg"
@@ -71,6 +73,7 @@ let rec string_of_expr = function
     Literal(l) -> "Literal(" ^ string_of_int l ^ ")"
   | BoolLit(true) -> "BoolLit(True)"
   | BoolLit(false) -> "BoolLit(False)"
+  | StringLit(s) -> "StringLit(\"" ^ s ^ "\")"
   | Id(s) -> "Id(" ^ s ^ ")"
   | Binop(e1, o, e2) ->
       "Binop(" ^ string_of_expr e1 ^ ", " ^ string_of_op o ^ ", " ^ string_of_expr e2 ^ ")"
