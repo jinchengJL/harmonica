@@ -7,7 +7,7 @@ open Ast
 %token SEMI LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET COMMA QUOTE DOT
 %token PLUS MINUS TIMES DIVIDE ASSIGN NOT
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR
-%token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID LIST STRUCT_STMT TYPEDEF CHANNEL PARALLEL CHAN
+%token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID TUPLE LIST STRUCT_STMT TYPEDEF CHANNEL PARALLEL CHAN
 %token <int> LITERAL
 %token <float> FLOAT_LITERAL
 %token <string> ID
@@ -53,15 +53,25 @@ formal_list:
     typ ID                   { [($1,$2)] }
   | formal_list COMMA typ ID { ($3,$4) :: $1 }
 
+tuple_typ_list:
+    /* nothing */ { [] }
+  | tuple_typ_list typ { $2 :: $1 }
+
+func_typ_list:
+    typ typ { $2 :: [$1] }
+  | func_typ_list typ { $2 :: $1 }
+
 typ:
     INT  { Int }
   | BOOL { Bool }
   | VOID { Void }
   | STRING { String }
   | FLOAT { Float }
+  | TUPLE LBRACKET tuple_typ_list RBRACKET { Tuple(List.rev $3) }
   | LIST LBRACKET typ RBRACKET { List($3) }
   | CHANNEL LBRACKET typ RBRACKET { Channel($3) }
   | ID { UserType($1) }
+  | LT func_typ_list GT { FuncType(List.rev $2) }
 
 vdecl_list:
     /* nothing */    { [] }
@@ -84,7 +94,7 @@ stmt:
   | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
      { For($3, $5, $7, $9) }
   | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
-  | STRUCT_STMT ID LBRACE vdecl_list RBRACE SEMI { Typedef(Struct($2, $4), $2) }
+  | STRUCT_STMT ID LBRACE vdecl_list RBRACE SEMI { Typedef(Struct($2, List.rev $4), $2) }
   | TYPEDEF typ ID SEMI { Typedef($2, $3) }
   | typ ID SEMI { Bind($1, $2) }
 
