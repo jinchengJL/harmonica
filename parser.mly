@@ -61,7 +61,7 @@ typ:
   | FLOAT { Float }
   | LIST LBRACKET typ RBRACKET { List($3) }
   | CHANNEL LBRACKET typ RBRACKET { Channel($3) }
-  | ID { UType($1) }
+  | ID { UserType($1) }
 
 vdecl_list:
     /* nothing */    { [] }

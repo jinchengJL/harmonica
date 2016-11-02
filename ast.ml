@@ -11,10 +11,12 @@ type typ =
   | Void
   | String
   | Float
+  | Tuple of typ list
   | List of typ
   | Channel of typ
   | Struct of string * (typ * string) list
-  | UType of string
+  | UserType of string
+  | FuncType of typ list
 
 type bind = typ * string
 
@@ -94,7 +96,7 @@ let rec string_of_typ = function
   | List(t) -> "List(" ^ string_of_typ t ^ ")"
   | Struct(id, vlist) -> "Struct(" ^ id ^ ", " ^ String.concat "" (List.map string_of_vdecl vlist) ^ ")"
   | Channel(t) -> "Channel(" ^ string_of_typ t ^ ")"
-  | UType(id) -> "UType(" ^ id ^ ")"
+  | UserType(id) -> "UserType(" ^ id ^ ")"
 
 and string_of_vdecl (t, id) = "Vdecl(" ^ string_of_typ t ^ ", " ^ id ^ ")\n"
 
