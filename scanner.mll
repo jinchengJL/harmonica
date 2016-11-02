@@ -40,6 +40,7 @@ rule token = parse
 | "bool"   { BOOL }
 | "string" { STRING }
 | "void"   { VOID }
+| "tuple"  { TUPLE }
 | "list"   { LIST }
 | "struct" { STRUCT_STMT }
 | "true"   { TRUE }

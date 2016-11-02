@@ -93,10 +93,12 @@ let rec string_of_typ = function
   | Void -> "Void"
   | Float -> "Float"
   | String -> "String"
+  | Tuple(tlist) -> "Tuple(" ^ String.concat ", " (List.map string_of_typ tlist) ^ ")"
   | List(t) -> "List(" ^ string_of_typ t ^ ")"
   | Struct(id, vlist) -> "Struct(" ^ id ^ ", " ^ String.concat "" (List.map string_of_vdecl vlist) ^ ")"
   | Channel(t) -> "Channel(" ^ string_of_typ t ^ ")"
   | UserType(id) -> "UserType(" ^ id ^ ")"
+  | FuncType(tlist) -> "FuncType(" ^ String.concat ", " (List.map string_of_typ tlist) ^ ")"
 
 and string_of_vdecl (t, id) = "Vdecl(" ^ string_of_typ t ^ ", " ^ id ^ ")\n"
 

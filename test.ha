@@ -27,4 +27,8 @@ int main() {
   c.func(c).pop();
 
   f = 1.23;
+
+  tuple[int float] tup;
+  typedef tuple[int float] TIF;
+  <TIF int> func;
 }
