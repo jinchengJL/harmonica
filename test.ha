@@ -37,6 +37,8 @@ int main() {
   
   string ha = "harmonica\\escape\"";
   "harmonica\\escape\"";
+  int a = c;
 
+  <int <int bool> <int int>> f;
 
 }

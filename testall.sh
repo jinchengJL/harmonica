@@ -7,7 +7,7 @@
 
 # Path to the LLVM interpreter
 LLI="lli"
-#LLI="/usr/local/opt/llvm/bin/lli"
+# LLI="/usr/local/opt/llvm/bin/lli"
 
 # Path to the microc compiler.  Usually "./microc.native"
 # Try "_build/microc.native" if ocamlbuild was unable to create a symbolic link.
@@ -25,7 +25,7 @@ globalerror=0
 keep=0
 
 Usage() {
-    echo "Usage: testall.sh [options] [.mc files]"
+    echo "Usage: testall.sh [options] [.ha files]"
     echo "-k    Keep intermediate files"
     echo "-h    Print this help"
     exit 1
@@ -74,8 +74,8 @@ RunFail() {
 Check() {
     error=0
     basename=`echo $1 | sed 's/.*\\///
-                             s/.mc//'`
-    reffile=`echo $1 | sed 's/.mc$//'`
+                             s/.ha//'`
+    reffile=`echo $1 | sed 's/.ha$//'`
     basedir="`echo $1 | sed 's/\/[^\/]*$//'`/."
 
     echo -n "$basename..."
@@ -93,22 +93,22 @@ Check() {
     # Report the status and clean up the generated files
 
     if [ $error -eq 0 ] ; then
-	if [ $keep -eq 0 ] ; then
-	    rm -f $generatedfiles
-	fi
-	echo "OK"
-	echo "###### SUCCESS" 1>&2
+	      if [ $keep -eq 0 ] ; then
+	          rm -f $generatedfiles
+	      fi
+	      echo "OK"
+	      echo "###### SUCCESS" 1>&2
     else
-	echo "###### FAILED" 1>&2
-	globalerror=$error
+	      echo "###### FAILED" 1>&2
+	      globalerror=$error
     fi
 }
 
 CheckFail() {
     error=0
     basename=`echo $1 | sed 's/.*\\///
-                             s/.mc//'`
-    reffile=`echo $1 | sed 's/.mc$//'`
+                             s/.ha//'`
+    reffile=`echo $1 | sed 's/.ha$//'`
     basedir="`echo $1 | sed 's/\/[^\/]*$//'`/."
 
     echo -n "$basename..."
@@ -125,14 +125,14 @@ CheckFail() {
     # Report the status and clean up the generated files
 
     if [ $error -eq 0 ] ; then
-	if [ $keep -eq 0 ] ; then
-	    rm -f $generatedfiles
-	fi
-	echo "OK"
-	echo "###### SUCCESS" 1>&2
+	      if [ $keep -eq 0 ] ; then
+	          rm -f $generatedfiles
+	      fi
+	      echo "OK"
+	      echo "###### SUCCESS" 1>&2
     else
-	echo "###### FAILED" 1>&2
-	globalerror=$error
+	      echo "###### FAILED" 1>&2
+	      globalerror=$error
     fi
 }
 
@@ -162,7 +162,7 @@ if [ $# -ge 1 ]
 then
     files=$@
 else
-    files="tests/test-*.mc tests/fail-*.mc"
+    files="tests/test-*.ha tests/fail-*.ha"
 fi
 
 for file in $files
