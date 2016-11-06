@@ -30,3 +30,4 @@ setup.log
 
 # make output
 main
+*.swp
