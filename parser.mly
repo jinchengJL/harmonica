@@ -10,7 +10,7 @@ open Ast
 %token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID TUPLE LIST STRUCT_STMT TYPEDEF CHANNEL PARALLEL CHAN LAMBDA
 %token <int> LITERAL
 %token <float> FLOAT_LITERAL
-%token <string> ID
+%token <string> ID STRING_LITERAL
 %token EOF
 
 %nonassoc NOELSE
@@ -124,6 +124,7 @@ expr:
   | TRUE             { BoolLit(true) }
   | FALSE            { BoolLit(false) }
   | FLOAT_LITERAL    { FloatLit($1) }
+  | STRING_LITERAL   { StringLit($1) }
   | LPAREN expr_comma_list_opt RPAREN { TupleLit($2) }
   | LBRACKET expr_list_opt RBRACKET { ListLit($2) }
   | ID               { Id($1) }

@@ -1,6 +1,12 @@
 (* Ocamllex scanner for MicroC *)
 
-{ open Parser }
+{ 
+	open Parser 
+}
+
+let escape = '\\' ['\\' ''' '"' 'n' 'r' 't']
+let ascii = ([' '-'!' '#'-'[' ']'-'~'])
+let str = (ascii | escape)*
 
 rule token = parse
   [' ' '\t' '\r' '\n'] { token lexbuf } (* Whitespace *)
@@ -35,6 +41,7 @@ rule token = parse
 | "for"    { FOR }
 | "while"  { WHILE }
 | "return" { RETURN }
+(* type keywords *)
 | "int"    { INT }
 | "float"  { FLOAT }
 | "bool"   { BOOL }
@@ -49,10 +56,16 @@ rule token = parse
 | "channel" { CHANNEL }
 | "chan"    { CHAN }
 | "parallel" { PARALLEL }
-| "lambda"   { LAMBDA }
+
+(* string literal *)
+| '"' (str as lxm) '"'      { STRING_LITERAL(lxm) }
+(* int literal *)
 | ['0'-'9']+ as lxm { LITERAL(int_of_string lxm) }
-| ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm { ID(lxm) }
+(* float literal *)
 | ['-''+']?['0'-'9']*'.'?['0'-'9']+(['e''E']['-''+']?['0'-'9']+)? as lxm { FLOAT_LITERAL(float_of_string lxm) }
+(* ID *)
+| ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm { ID(lxm) }
+
 | eof { EOF }
 | _ as char { raise (Failure("illegal character " ^ Char.escaped char)) }
 

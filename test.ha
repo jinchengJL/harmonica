@@ -34,4 +34,6 @@ int main() {
 
   l = [1,2,3,4,5];
   tup = (1, 2.67);
+  string ha;
+  ha = "harmonica\\escape\"";
 }
