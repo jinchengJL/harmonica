@@ -43,6 +43,7 @@ type stmt =
   | While of expr * stmt
   | Typedef of typ * string
   | Bind of typ * string
+  | Binass of typ * string * expr
 
 type func_decl = {
     typ : typ;
@@ -120,6 +121,7 @@ let rec string_of_stmt = function
   | While(e, s) -> "While(" ^ string_of_expr e ^ ", " ^ string_of_stmt s ^ ")\n"
   | Typedef(t, s) -> "Typedef(" ^ string_of_typ t ^ ", " ^ s ^ ")\n"
   | Bind(t, s) -> "Bind(" ^ string_of_typ t ^ ", " ^ s ^ ")\n"
+  | Binass(t, s, e) -> "Binass(" ^ string_of_typ t ^ ", " ^ s ^ ", " ^ string_of_expr e ^ ")\n"
 
 let string_of_fdecl fdecl =
   string_of_typ fdecl.typ ^ " " ^

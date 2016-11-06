@@ -97,6 +97,7 @@ stmt:
   | STRUCT_STMT ID LBRACE vdecl_list RBRACE SEMI { Typedef(Struct($2, List.rev $4), $2) }
   | TYPEDEF typ ID SEMI { Typedef($2, $3) }
   | typ ID SEMI { Bind($1, $2) }
+  | typ ID ASSIGN expr SEMI { Binass($1, $2, $4) }
 
 expr_opt:
     /* nothing */ { Noexpr }
