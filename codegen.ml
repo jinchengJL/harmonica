@@ -73,7 +73,8 @@ let translate (globals, functions) =
 
       let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
           (Array.to_list (L.params the_function)) in
-      List.fold_left add_local formals fdecl.A.locals in
+      List.fold_left add_local formals [] in
+      (* List.fold_left add_local formals fdecl.A.locals in *)
 
     (* Return the value for a variable or formal argument *)
     let lookup n = try StringMap.find n local_vars
