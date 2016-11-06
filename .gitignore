@@ -26,3 +26,6 @@ setup.log
 *~
 *.out
 .DS_STORE
+
+# make output
+main
