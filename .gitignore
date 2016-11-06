@@ -11,6 +11,7 @@
 *.mli
 parser.ml
 scanner.ml
+parser.output
 
 # ocamlbuild working directory
 _build/
