@@ -84,6 +84,7 @@ let translate (globals, functions) =
     (* Construct code for an expression; return its value *)
     let rec expr builder = function
 	A.Literal i -> L.const_int i32_t i
+      | A.StringLit s -> L.build_global_stringptr s "" builder
       | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
       | A.Noexpr -> L.const_int i32_t 0
       | A.Id s -> L.build_load (lookup s) s builder
@@ -111,7 +112,27 @@ let translate (globals, functions) =
           | A.Not     -> L.build_not) e' "tmp" builder
       | A.Assign (s, e) -> let e' = expr builder e in
 	                   ignore (L.build_store e' (lookup s) builder); e'
-      | A.Call ("print", [e]) | A.Call ("printb", [e]) ->
+      | A.Call ("print", [e])
+(*paste*)
+
+| A.Call ("print", [e]) ->
+  (match List.hd [e] with
+  | A.StringLit s ->
+    let head = expr builder (List.hd [e]) in
+    let llvm_val = L.build_in_bounds_gep head [| L.const_int i32_t 0 |] "string_printf" builder in
+
+    print_endline ";a.string print called";
+    L.build_call printf_func [| llvm_val |] "string_printf" builder
+
+  | _ -> print_endline ";_ print called"; L.build_call printf_func [| int_format_str ; (expr builder e) |] "abcd" builder
+)
+
+
+(*paste*)
+
+
+
+      | A.Call ("printb", [e]) ->
 	  L.build_call printf_func [| int_format_str ; (expr builder e) |]
 	    "printf" builder
       | A.Call (f, act) ->
