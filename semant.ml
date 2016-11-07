@@ -47,11 +47,9 @@ let check (globals, functions) =
     (List.map (fun fd -> fd.fname) functions);
 
   (* Function declaration for a named function *)
-  let built_in_decls =  StringMap.add "print"
+  let built_in_decls =  StringMap.singleton "print"
      { typ = Void; fname = "print"; formals = [(String, "x")];
-       body = [] } (StringMap.singleton "printb"
-     { typ = Void; fname = "printb"; formals = [(Bool, "x")];
-       body = [] })
+       body = [] }
    in
      
   let function_decls = List.fold_left (fun m fd -> StringMap.add fd.fname fd m)
@@ -72,51 +70,62 @@ let check (globals, functions) =
     report_duplicate (fun n -> "duplicate formal " ^ n ^ " in " ^ func.fname)
       (List.map snd func.formals);
 
-    (* List.iter (check_not_void (fun n -> "illegal void local " ^ n ^ *)
-    (*   " in " ^ func.fname)) func.locals; *)
-
-    (* report_duplicate (fun n -> "duplicate local " ^ n ^ " in " ^ func.fname) *)
-    (*   (List.map snd func.locals); *)
-
     (* Type of each variable (global, formal, or local *)
-    let symbols = List.fold_left (fun m (t, n) -> StringMap.add n t m)
-	StringMap.empty (globals @ func.formals)
-    in
+    let symbols = Hashtbl.create 10 in
+
+    List.iter (fun (t, name) -> Hashtbl.add symbols name t) (globals @ func.formals);
+    
+    let user_types = Hashtbl.create 10 in
 
     let type_of_identifier s =
-      try StringMap.find s symbols
+      try Hashtbl.find symbols s
       with Not_found -> raise (Failure ("undeclared identifier " ^ s))
+    in
+
+    let rec resolve_user_type usert =
+      (match usert with
+         UserType(s) -> (try resolve_user_type (Hashtbl.find user_types s)
+                         with Not_found -> raise (Failure ("undefined type " ^ s)))
+       | _ -> usert)
     in
 
     (* Return the type of an expression or throw an exception *)
     let rec expr = function
-	Literal _ -> Int
+	      Literal _ -> Int
       | BoolLit _ -> Bool
       | StringLit _ -> String
+      | FloatLit _ -> Float
+      | TupleLit elist -> Tuple (List.map expr elist)
+      | ListLit elist -> 
+         let tlist = List.map expr elist in
+         List (List.hd tlist)   (* TODO: need to check all elements are same type *)
       | Id s -> type_of_identifier s
-      | Binop(e1, op, e2) as e -> let t1 = expr e1 and t2 = expr e2 in
-	(match op with
-          Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
-	| Equal | Neq when t1 = t2 -> Bool
-	| Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
-	| And | Or when t1 = Bool && t2 = Bool -> Bool
-        | _ -> raise (Failure ("illegal binary operator " ^
-              string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
-              string_of_typ t2 ^ " in " ^ string_of_expr e))
-        )
-      | Unop(op, e) as ex -> let t = expr e in
-	 (match op with
-	   Neg when t = Int -> Int
-	 | Not when t = Bool -> Bool
-         | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
-	  		   string_of_typ t ^ " in " ^ string_of_expr ex)))
+      | Binop(e1, op, e2) as e -> 
+         let t1 = expr e1 and t2 = expr e2 in
+	       (match op with
+            Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
+	          | Equal | Neq when t1 = t2 -> Bool
+	          | Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
+	          | And | Or when t1 = Bool && t2 = Bool -> Bool
+            | _ -> raise (Failure ("illegal binary operator " ^
+                                     string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
+                                       string_of_typ t2 ^ " in " ^ string_of_expr e))
+         )
+      | Unop(op, e) as ex -> 
+         let t = expr e in
+	       (match op with
+	          Neg when t = Int -> Int
+	        | Not when t = Bool -> Bool
+          | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
+	  		                           string_of_typ t ^ " in " ^ string_of_expr ex)))
       | Noexpr -> Void
       | Assign(var, e) as ex -> let lt = type_of_identifier var
                                 and rt = expr e in
-        check_assign lt rt (Failure ("illegal assignment " ^ string_of_typ lt ^
-				     " = " ^ string_of_typ rt ^ " in " ^ 
-				     string_of_expr ex))
-      | Call(fname, actuals) as call -> let fd = function_decl fname in
+                                check_assign lt rt (Failure ("illegal assignment " ^ string_of_typ lt ^
+				                                                       " = " ^ string_of_typ rt ^ " in " ^ 
+				                                                         string_of_expr ex))
+      | Call(fname, actuals) as call -> 
+         let fd = function_decl fname in
          if List.length actuals != List.length fd.formals then
            raise (Failure ("expecting " ^ string_of_int
              (List.length fd.formals) ^ " arguments in " ^ string_of_expr call))
@@ -133,14 +142,19 @@ let check (globals, functions) =
      then raise (Failure ("expected Boolean expression in " ^ string_of_expr e))
      else () in
 
+    let check_bind t name = if Hashtbl.mem symbols name then
+                              raise (Failure ("duplicate local " ^ name))
+                            else Hashtbl.add symbols name t in
+
     (* Verify a statement or throw an exception *)
     let rec stmt = function
-	Block sl -> let rec check_block = function
-           [Return _ as s] -> stmt s
-         | Return _ :: _ -> raise (Failure "nothing may follow a return")
-         | Block sl :: ss -> check_block (sl @ ss)
-         | s :: ss -> stmt s ; check_block ss
-         | [] -> ()
+	      Block sl -> 
+        let rec check_block = function
+            [Return _ as s] -> stmt s
+          | Return _ :: _ -> raise (Failure "nothing may follow a return")
+          | Block sl :: ss -> check_block (sl @ ss)
+          | s :: ss -> stmt s ; check_block ss
+          | [] -> ()
         in check_block sl
       | Expr e -> ignore (expr e)
       | Return e -> let t = expr e in if t = func.typ then () else
@@ -151,6 +165,15 @@ let check (globals, functions) =
       | For(e1, e2, e3, st) -> ignore (expr e1); check_bool_expr e2;
                                ignore (expr e3); stmt st
       | While(p, s) -> check_bool_expr p; stmt s
+      | Typedef(t, s) -> Hashtbl.add user_types s (resolve_user_type t)
+      | Bind(t, name) -> check_bind t name
+      | Binass(t, name, e) -> 
+         check_bind t name;
+         let rtype = expr e in
+         ignore (check_assign t rtype 
+                              (Failure ("illegal assignment " ^ string_of_typ t ^
+				                                  " = " ^ string_of_typ rtype ^ " in " ^ 
+				                                    string_of_expr e)))
     in
 
     stmt (Block func.body)
