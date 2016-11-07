@@ -1,3 +1,5 @@
+int global;
+
 int main() { 
   float f;
   string s;
