@@ -7,7 +7,8 @@ open Ast
 %token SEMI LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET COMMA QUOTE DOT
 %token PLUS MINUS TIMES DIVIDE ASSIGN NOT
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR
-%token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID TUPLE LIST STRUCT_STMT TYPEDEF CHANNEL PARALLEL CHAN LAMBDA
+%token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID TUPLE LIST STRUCT_STMT TYPEDEF 
+%token CHANNEL PARALLEL CHAN LAMBDA 
 %token <int> LITERAL
 %token <float> FLOAT_LITERAL
 %token <string> ID STRING_LITERAL
@@ -61,12 +62,15 @@ func_typ_list:
     typ typ { $2 :: [$1] }
   | func_typ_list typ { $2 :: $1 }
 
-typ:
-    INT  { Int }
+primitive:
+    INT { Int }
   | BOOL { Bool }
   | VOID { Void }
   | STRING { String }
   | FLOAT { Float }
+
+typ:
+    primitive  { DataType($1) }
   | TUPLE LBRACKET tuple_typ_list RBRACKET { Tuple(List.rev $3) }
   | LIST LBRACKET typ RBRACKET { List($3) }
   | CHANNEL LBRACKET typ RBRACKET { Channel($3) }
@@ -121,13 +125,7 @@ expr_comma_list:
   | expr_comma_list COMMA expr { $3 :: $1 }
 
 expr:
-    LITERAL          { Literal($1) }
-  | TRUE             { BoolLit(true) }
-  | FALSE            { BoolLit(false) }
-  | FLOAT_LITERAL    { FloatLit($1) }
-  | STRING_LITERAL   { StringLit($1) }
-  | LPAREN expr_comma_list_opt RPAREN { TupleLit($2) }
-  | LBRACKET expr_list_opt RBRACKET { ListLit($2) }
+    literals          { $1 }
   | ID               { Id($1) }
   | expr PLUS   expr { Binop($1, Add,   $3) }
   | expr MINUS  expr { Binop($1, Sub,   $3) }
@@ -149,6 +147,18 @@ expr:
   | PARALLEL LPAREN actuals_opt RPAREN { Call("parallel", $3) }
   | CHAN LPAREN chan_actuals_opt RPAREN { Call("chan", $3) }
   | LPAREN expr RPAREN { $2 }
+
+primitives:
+    LITERAL          { Literal($1) }
+  | TRUE             { BoolLit(true) }
+  | FALSE            { BoolLit(false) }
+  | FLOAT_LITERAL    { FloatLit($1) }
+  | STRING_LITERAL   { StringLit($1) }
+
+literals:
+    primitives         { $1 }
+  | LPAREN expr_comma_list_opt RPAREN { TupleLit($2) }
+  | LBRACKET expr_list_opt RBRACKET { ListLit($2) }
 
 chan_actuals_opt:
     typ { [StringLit(string_of_typ $1)] }

@@ -27,10 +27,11 @@ let translate (globals, functions) =
   and void_t = L.void_type   context in
 
   let ltype_of_typ = function
-      A.Int -> i32_t
-    | A.Bool -> i1_t
-    | A.Float -> dbl_t
-    | A.Void -> void_t 
+      A.DataType(A.Int) -> i32_t
+    | A.DataType(A.Bool) -> i1_t
+    | A.DataType(A.Float) -> dbl_t
+    | A.DataType(A.Void) -> void_t 
+    | _ -> i32_t
   in
 
   (* Declare each global variable; remember its value in a map *)
@@ -132,18 +133,19 @@ let translate (globals, functions) =
          )
 
       | A.Call (f, act) ->
-         let (fdef, fdecl) = StringMap.find f function_decls in
-	 let actuals = List.rev (List.map (expr builder) (List.rev act)) in
-	 let result = (match fdecl.A.typ with A.Void -> ""
-                                            | _ -> f ^ "_result") in
-         L.build_call fdef (Array.of_list actuals) result builder
+          let (fdef, fdecl) = StringMap.find f function_decls in
+          let actuals = List.rev (List.map (expr builder) (List.rev act)) in
+          let result = (match fdecl.A.typ with 
+             A.DataType(A.Void) -> ""
+            | _ -> f ^ "_result") in
+          L.build_call fdef (Array.of_list actuals) result builder
     in
 
     (* Invoke "f builder" if the current block doesn't already
        have a terminal (e.g., a branch). *)
     let add_terminal builder f =
       match L.block_terminator (L.insertion_block builder) with
-	Some _ -> ()
+      	Some _ -> ()
       | None -> ignore (f builder) in
 	
     (* Build the code for the given statement; return the builder for
@@ -153,7 +155,7 @@ let translate (globals, functions) =
       | A.Expr e -> ignore (expr builder e); builder
       | A.Return e -> 
          ignore (match fdecl.A.typ with
-	                 A.Void -> L.build_ret_void builder
+	                 A.DataType(A.Void) -> L.build_ret_void builder
 	               | _ -> L.build_ret (expr builder e) builder); builder
       | A.If (predicate, then_stmt, else_stmt) ->
          let bool_val = expr builder predicate in
@@ -194,7 +196,7 @@ let translate (globals, functions) =
 
     (* Add a return if the last block falls off the end *)
     add_terminal builder (match fdecl.A.typ with
-                            A.Void -> L.build_ret_void
+                            A.DataType(A.Void) -> L.build_ret_void
                           | t -> L.build_ret (L.const_int (ltype_of_typ t) 0))
   in
 
