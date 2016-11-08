@@ -2,6 +2,7 @@
 
 { 
 	open Parser 
+
 }
 
 let escape = '\\' ['\\' ''' '"' 'n' 'r' 't']
@@ -58,7 +59,7 @@ rule token = parse
 | "parallel" { PARALLEL }
 
 (* string literal *)
-| '"' (str as lxm) '"'      { STRING_LITERAL(lxm) }
+| '"' (([' '-'!' '#'-'&' '('-'[' ']'-'~'] | '\\' [ '\\' '"' 'n' 'r' 't' '''])* as lxm) '"'  { STRING_LITERAL(lxm) }
 (* int literal *)
 | ['0'-'9']+ as lxm { LITERAL(int_of_string lxm) }
 (* float literal *)

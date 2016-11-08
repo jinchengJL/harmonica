@@ -22,7 +22,7 @@ let check (globals, functions) =
 
   (* Raise an exception if a given binding is to a void type *)
   let check_not_void exceptf = function
-      (Void, n) -> raise (Failure (exceptf n))
+      (DataType(Void), n) -> raise (Failure (exceptf n))
     | _ -> ()
   in
   
@@ -48,7 +48,7 @@ let check (globals, functions) =
 
   (* Function declaration for a named function *)
   let built_in_decls =  StringMap.singleton "print"
-     { typ = Void; fname = "print"; formals = [(String, "x")];
+     { typ = DataType(Void); fname = "print"; formals = [(DataType(String), "x")];
        body = [] }
    in
      
@@ -91,10 +91,10 @@ let check (globals, functions) =
 
     (* Return the type of an expression or throw an exception *)
     let rec expr = function
-	      Literal _ -> Int
-      | BoolLit _ -> Bool
-      | StringLit _ -> String
-      | FloatLit _ -> Float
+	      Literal _ -> DataType(Int)
+      | BoolLit _ -> DataType(Bool)
+      | StringLit _ -> DataType(String)
+      | FloatLit _ -> DataType(Float)
       | TupleLit elist -> Tuple (List.map expr elist)
       | ListLit elist -> 
          let tlist = List.map expr elist in
@@ -103,10 +103,10 @@ let check (globals, functions) =
       | Binop(e1, op, e2) as e -> 
          let t1 = expr e1 and t2 = expr e2 in
 	       (match op with
-            Add | Sub | Mult | Div when t1 = Int && t2 = Int -> Int
-	          | Equal | Neq when t1 = t2 -> Bool
-	          | Less | Leq | Greater | Geq when t1 = Int && t2 = Int -> Bool
-	          | And | Or when t1 = Bool && t2 = Bool -> Bool
+            Add | Sub | Mult | Div when t1 =DataType(Int)&& t2 =DataType(Int)->DataType(Int)
+	          | Equal | Neq when t1 = t2 ->DataType(Bool)
+	          | Less | Leq | Greater | Geq when t1 =DataType(Int)&& t2 =DataType(Int)->DataType(Bool)
+	          | And | Or when t1 =DataType(Bool)&& t2 =DataType(Bool)->DataType(Bool)
             | _ -> raise (Failure ("illegal binary operator " ^
                                      string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
                                        string_of_typ t2 ^ " in " ^ string_of_expr e))
@@ -114,11 +114,11 @@ let check (globals, functions) =
       | Unop(op, e) as ex -> 
          let t = expr e in
 	       (match op with
-	          Neg when t = Int -> Int
-	        | Not when t = Bool -> Bool
+	          Neg when t =DataType(Int)->DataType(Int)
+	        | Not when t =DataType(Bool)->DataType(Bool)
           | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
 	  		                           string_of_typ t ^ " in " ^ string_of_expr ex)))
-      | Noexpr -> Void
+      | Noexpr -> DataType(Void)
       | Assign(var, e) as ex -> let lt = type_of_identifier var
                                 and rt = expr e in
                                 check_assign lt rt (Failure ("illegal assignment " ^ string_of_typ lt ^
@@ -138,8 +138,8 @@ let check (globals, functions) =
            fd.typ
     in
 
-    let check_bool_expr e = if expr e != Bool
-     then raise (Failure ("expected Boolean expression in " ^ string_of_expr e))
+    let check_bool_expr e = if expr e !=DataType(Bool)
+     then raise (Failure ("expectedDataType(Bool)ean expression in " ^ string_of_expr e))
      else () in
 
     let check_bind t name = if Hashtbl.mem symbols name then

@@ -5,12 +5,10 @@ type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
 
 type uop = Neg | Not
 
+type primitive = Int | Bool | Void | String | Float
+
 type typ = 
-    Int
-  | Bool
-  | Void
-  | String
-  | Float
+    DataType of primitive 
   | Tuple of typ list
   | List of typ
   | Channel of typ
@@ -93,11 +91,11 @@ let rec string_of_expr = function
   | Noexpr -> "Noexpr"
 
 let rec string_of_typ = function
-    Int -> "Int"
-  | Bool -> "Bool"
-  | Void -> "Void"
-  | Float -> "Float"
-  | String -> "String"
+    DataType(Int) -> "Int"
+  | DataType(Bool) -> "Bool"
+  | DataType(Void) -> "Void"
+  | DataType(Float) -> "Float"
+  | DataType(String) -> "String"
   | Tuple(tlist) -> "Tuple(" ^ String.concat ", " (List.map string_of_typ tlist) ^ ")"
   | List(t) -> "List(" ^ string_of_typ t ^ ")"
   | Struct(id, vlist) -> "Struct(" ^ id ^ ", " ^ String.concat "" (List.map string_of_vdecl vlist) ^ ")"
