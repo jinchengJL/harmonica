@@ -30,7 +30,8 @@ let translate (globals, functions) =
       A.Int -> i32_t
     | A.Bool -> i1_t
     | A.Float -> dbl_t
-    | A.Void -> void_t in
+    | A.Void -> void_t 
+  in
 
   (* Declare each global variable; remember its value in a map *)
   let global_vars =
@@ -107,6 +108,7 @@ let translate (globals, functions) =
 	        | A.Leq     -> L.build_icmp L.Icmp.Sle
 	        | A.Greater -> L.build_icmp L.Icmp.Sgt
 	        | A.Geq     -> L.build_icmp L.Icmp.Sge
+          | A.Member  -> (*TODO*) L.build_add
 	       ) e1' e2' "tmp" builder
       | A.Unop(op, e) ->
 	       let e' = expr builder e in
