@@ -1,4 +1,4 @@
-/* Ocamlyacc parser for MicroC */
+/* Ocamlyacc parser for Harmonica */
 
 %{
 open Ast
