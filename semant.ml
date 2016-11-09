@@ -16,6 +16,8 @@ let check (global_vdecls, functions) =
     | Binass(t, n, _) -> (t, n)
   in
 
+  let global_binds = List.map vdecl_to_bind global_vdecls in
+
   (* Raise an exception if the given list has a duplicate *)
   let report_duplicate exceptf list =
     let rec helper = function
@@ -30,18 +32,11 @@ let check (global_vdecls, functions) =
       (DataType(Void), n) -> raise (Failure (exceptf n))
     | _ -> ()
   in
-  
-  (* Raise an exception of the given rvalue type cannot be assigned to
-     the given lvalue type *)
-  let check_assign lvaluet rvaluet err =
-     if lvaluet == rvaluet then lvaluet else raise err
-  in
-   
+
   (**** Checking Global Variables ****)
 
-  List.iter (check_not_void (fun n -> "illegal void global " ^ n)) (List.map vdecl_to_bind global_vdecls);
-   
-  report_duplicate (fun n -> "duplicate global " ^ n) (List.map snd (List.map vdecl_to_bind global_vdecls));
+  List.iter (check_not_void (fun n -> "illegal void global " ^ n)) global_binds;
+  report_duplicate (fun n -> "duplicate global " ^ n) (List.map snd global_binds);
 
   (**** Checking Functions ****)
 
@@ -51,15 +46,47 @@ let check (global_vdecls, functions) =
   report_duplicate (fun n -> "duplicate function " ^ n)
     (List.map (fun fd -> fd.fname) functions);
 
-  (* global variable table *)
-  
+  (* User-defined types *)
+  let user_types = Hashtbl.create 10 in
+  let rec resolve_user_type usert =
+    (match usert with
+       UserType(s) -> (try resolve_user_type (Hashtbl.find user_types s)
+                       with Not_found -> raise (Failure ("undefined type " ^ s)))
+     | _ -> usert)
+  in
+
+  (* Structural equality *)
+  let rec typ_equal t1 t2 = 
+    (match (t1, t2) with
+       (DataType(p1), DataType(p2)) -> p1 == p2
+     | (Tuple(tlist1), Tuple(tlist2)) -> 
+        List.for_all2 typ_equal tlist1 tlist2
+     | (List(t1'), List(t2')) -> typ_equal t1' t2'
+     | (Channel(t1'), Channel(t2')) -> typ_equal t1' t2'
+     | (Struct(name1, _), Struct(name2, _)) -> name1 == name2 (* TODO: ok? *)
+     | (UserType(_), UserType(_)) -> 
+        typ_equal (resolve_user_type t1) (resolve_user_type t2)
+     | (FuncType(tlist1), FuncType(tlist2)) -> 
+        List.for_all2 typ_equal tlist1 tlist2
+     | _ -> false
+    ) in
+
+  (* Raise an exception of the given rvalue type cannot be assigned to
+     the given lvalue type *)
+  let check_assign lvaluet rvaluet err =
+     if typ_equal lvaluet rvaluet then lvaluet else raise err
+  in
+
+  (* Global variable table *)
+  let global_vars = Hashtbl.create 10 in
+  List.iter (fun (t, name) -> Hashtbl.add global_vars name t) global_binds;
 
   (* Function declaration for a named function *)
   let built_in_decls =  StringMap.singleton "print"
      { typ = DataType(Void); fname = "print"; formals = [(DataType(String), "x")];
        body = [] }
    in
-     
+
   let function_decls = List.fold_left (fun m fd -> StringMap.add fd.fname fd m)
                          built_in_decls functions
   in
@@ -78,24 +105,21 @@ let check (global_vdecls, functions) =
     report_duplicate (fun n -> "duplicate formal " ^ n ^ " in " ^ func.fname)
       (List.map snd func.formals);
 
-    (* Type of each variable (global, formal, or local *)
-    let symbols = Hashtbl.create 10 in
-
-    List.iter (fun (t, name) -> Hashtbl.add symbols name t) ((List.map vdecl_to_bind global_vdecls) @ func.formals);
+    (* Local variables and formals *)
+    let local_vars = Hashtbl.create 10 in
+    List.iter (fun (t, name) -> Hashtbl.add local_vars name t) func.formals;
     
-    let user_types = Hashtbl.create 10 in
-
+    (* NOTE: local variable overrides global variable with same name *)
     let type_of_identifier s =
-      try Hashtbl.find symbols s
-      with Not_found -> raise (Failure ("undeclared identifier " ^ s))
+      try Hashtbl.find local_vars s
+      with Not_found -> 
+        try Hashtbl.find global_vars s
+        with Not_found -> raise (Failure ("undeclared identifier " ^ s))
     in
 
-    let rec resolve_user_type usert =
-      (match usert with
-         UserType(s) -> (try resolve_user_type (Hashtbl.find user_types s)
-                         with Not_found -> raise (Failure ("undefined type " ^ s)))
-       | _ -> usert)
-    in
+    let check_bind t name = if Hashtbl.mem local_vars name then
+                              raise (Failure ("redefinition of " ^ name))
+                            else Hashtbl.add local_vars name t in
 
     (* Return the type of an expression or throw an exception *)
     let rec expr = function
@@ -104,9 +128,16 @@ let check (global_vdecls, functions) =
       | StringLit _ -> DataType(String)
       | FloatLit _ -> DataType(Float)
       | TupleLit elist -> Tuple (List.map expr elist)
-      | ListLit elist -> 
+      | ListLit elist as e ->
+         (* TODO: type of empty lists (unknown?) *)
          let tlist = List.map expr elist in
-         List (List.hd tlist)   (* TODO: need to check all elements are same type *)
+         if (List.length tlist) == 0
+         then raise (Failure ("not yet implemented"))
+         else
+           let canon = List.hd tlist in
+           if List.for_all (fun t -> t == canon) tlist
+           then List(canon)
+           else raise (Failure ("inconsistent types in list literal " ^ string_of_expr e))
       | Id s -> type_of_identifier s
       | Binop(e1, op, e2) as e -> 
          let t1 = expr e1 and t2 = expr e2 in
@@ -150,13 +181,10 @@ let check (global_vdecls, functions) =
      then raise (Failure ("expectedDataType(Bool)ean expression in " ^ string_of_expr e))
      else () in
 
-    let check_bind t name = if Hashtbl.mem symbols name then
-                              raise (Failure ("duplicate local " ^ name))
-                            else Hashtbl.add symbols name t in
-
     (* Verify a statement or throw an exception *)
     let rec stmt = function
 	      Block sl -> 
+        (* TODO: Block-level scoping *)
         let rec check_block = function
             [Return _ as s] -> stmt s
           | Return _ :: _ -> raise (Failure "nothing may follow a return")
