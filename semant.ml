@@ -9,7 +9,12 @@ module StringMap = Map.Make(String)
 
    Check each global variable, then check each function *)
 
-let check (globals, functions) =
+let check (global_vdecls, functions) =
+
+  let vdecl_to_bind = function
+      Bind(t, n) -> (t, n)
+    | Binass(t, n, _) -> (t, n)
+  in
 
   (* Raise an exception if the given list has a duplicate *)
   let report_duplicate exceptf list =
@@ -34,9 +39,9 @@ let check (globals, functions) =
    
   (**** Checking Global Variables ****)
 
-  List.iter (check_not_void (fun n -> "illegal void global " ^ n)) globals;
+  List.iter (check_not_void (fun n -> "illegal void global " ^ n)) (List.map vdecl_to_bind global_vdecls);
    
-  report_duplicate (fun n -> "duplicate global " ^ n) (List.map snd globals);
+  report_duplicate (fun n -> "duplicate global " ^ n) (List.map snd (List.map vdecl_to_bind global_vdecls));
 
   (**** Checking Functions ****)
 
@@ -45,6 +50,9 @@ let check (globals, functions) =
 
   report_duplicate (fun n -> "duplicate function " ^ n)
     (List.map (fun fd -> fd.fname) functions);
+
+  (* global variable table *)
+  
 
   (* Function declaration for a named function *)
   let built_in_decls =  StringMap.singleton "print"
@@ -73,7 +81,7 @@ let check (globals, functions) =
     (* Type of each variable (global, formal, or local *)
     let symbols = Hashtbl.create 10 in
 
-    List.iter (fun (t, name) -> Hashtbl.add symbols name t) (globals @ func.formals);
+    List.iter (fun (t, name) -> Hashtbl.add symbols name t) ((List.map vdecl_to_bind global_vdecls) @ func.formals);
     
     let user_types = Hashtbl.create 10 in
 
@@ -166,14 +174,16 @@ let check (globals, functions) =
                                ignore (expr e3); stmt st
       | While(p, s) -> check_bool_expr p; stmt s
       | Typedef(t, s) -> Hashtbl.add user_types s (resolve_user_type t)
-      | Bind(t, name) -> check_bind t name
-      | Binass(t, name, e) -> 
-         check_bind t name;
-         let rtype = expr e in
-         ignore (check_assign t rtype 
-                              (Failure ("illegal assignment " ^ string_of_typ t ^
-				                                  " = " ^ string_of_typ rtype ^ " in " ^ 
-				                                    string_of_expr e)))
+      | Vdecl(vd) ->
+         (match vd with
+            Bind(t, name) -> check_bind t name
+          | Binass(t, name, e) -> 
+             check_bind t name;
+             let rtype = expr e in
+             ignore (check_assign t rtype 
+                                  (Failure ("illegal assignment " ^ string_of_typ t ^
+				                                      " = " ^ string_of_typ rtype ^ " in " ^ 
+				                                        string_of_expr e))))
     in
 
     stmt (Block func.body)

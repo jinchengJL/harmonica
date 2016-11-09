@@ -1,4 +1,5 @@
 int global;
+int global_init = 132;
 
 int main() { 
   float f;

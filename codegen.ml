@@ -33,13 +33,18 @@ let translate (globals, functions) =
     | A.DataType(A.Void) -> void_t 
     | _ -> i32_t
   in
+  
+  let vdecl_to_bind = function
+      A.Bind(t, n) -> (t, n)
+    | A.Binass(t, n, _) -> (t, n)
+  in  
 
   (* Declare each global variable; remember its value in a map *)
   let global_vars =
     let global_var m (t, n) =
       let init = L.const_int (ltype_of_typ t) 0
       in StringMap.add n (L.define_global n init the_module) m in
-    List.fold_left global_var StringMap.empty globals in
+    List.fold_left global_var StringMap.empty (List.map vdecl_to_bind globals) in
 
   (* Declare printf(), which the print built-in function will call *)
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in

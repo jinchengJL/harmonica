@@ -77,12 +77,16 @@ typ:
   | ID { UserType($1) }
   | LT func_typ_list GT { FuncType(List.rev $2) }
 
-vdecl_list:
-    /* nothing */    { [] }
-  | vdecl_list vdecl { $2 :: $1 }
-
 vdecl:
-   typ ID SEMI { ($1, $2) }
+    typ ID SEMI { Bind($1, $2) }
+  | typ ID ASSIGN expr SEMI { Binass($1, $2, $4) }
+
+bind_list:
+    /* nothing */ { [] }
+  | bind_list bind { $2 :: $1 }
+
+bind:
+    typ ID SEMI { ($1, $2) }
 
 stmt_list:
     /* nothing */  { [] }
@@ -98,10 +102,9 @@ stmt:
   | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
      { For($3, $5, $7, $9) }
   | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
-  | STRUCT_STMT ID LBRACE vdecl_list RBRACE SEMI { Typedef(Struct($2, List.rev $4), $2) }
+  | STRUCT_STMT ID LBRACE bind_list RBRACE SEMI { Typedef(Struct($2, List.rev $4), $2) }
   | TYPEDEF typ ID SEMI { Typedef($2, $3) }
-  | typ ID SEMI { Bind($1, $2) }
-  | typ ID ASSIGN expr SEMI { Binass($1, $2, $4) }
+  | vdecl { Vdecl($1) }
 
 expr_opt:
     /* nothing */ { Noexpr }

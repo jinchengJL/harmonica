@@ -16,8 +16,6 @@ type typ =
   | UserType of string
   | FuncType of typ list
 
-type bind = typ * string
-
 type expr =
     Literal of int
   | BoolLit of bool
@@ -32,6 +30,10 @@ type expr =
   | Call of string * expr list
   | Noexpr
 
+type var_decl = 
+    Bind of typ * string
+  | Binass of typ * string * expr
+
 type stmt =
     Block of stmt list
   | Expr of expr
@@ -40,17 +42,16 @@ type stmt =
   | For of expr * expr * expr * stmt
   | While of expr * stmt
   | Typedef of typ * string
-  | Bind of typ * string
-  | Binass of typ * string * expr
+  | Vdecl of var_decl
 
 type func_decl = {
     typ : typ;
     fname : string;
-    formals : bind list;
+    formals : (typ * string) list;
     body : stmt list;
   }
 
-type program = bind list * func_decl list
+type program = var_decl list * func_decl list
 
 (* Pretty-printing functions *)
 
@@ -98,12 +99,16 @@ let rec string_of_typ = function
   | DataType(String) -> "String"
   | Tuple(tlist) -> "Tuple(" ^ String.concat ", " (List.map string_of_typ tlist) ^ ")"
   | List(t) -> "List(" ^ string_of_typ t ^ ")"
-  | Struct(id, vlist) -> "Struct(" ^ id ^ ", " ^ String.concat "" (List.map string_of_vdecl vlist) ^ ")"
+  | Struct(id, vlist) -> "Struct(" ^ id ^ ", " ^ String.concat "" (List.map string_of_bind vlist) ^ ")"
   | Channel(t) -> "Channel(" ^ string_of_typ t ^ ")"
   | UserType(id) -> "UserType(" ^ id ^ ")"
   | FuncType(tlist) -> "FuncType(" ^ String.concat ", " (List.map string_of_typ tlist) ^ ")"
 
-and string_of_vdecl (t, id) = "Vdecl(" ^ string_of_typ t ^ ", " ^ id ^ ")\n"
+and string_of_bind (t, id) = "Bind(" ^ string_of_typ t ^ ", " ^ id ^ ")\n"
+
+let string_of_vdecl = function
+    Bind(t, s) -> "Bind(" ^ string_of_typ t ^ ", " ^ s ^ ")\n"
+  | Binass(t, s, e) -> "Binass(" ^ string_of_typ t ^ ", " ^ s ^ ", " ^ string_of_expr e ^ ")\n"
 
 let rec string_of_stmt = function
     Block(stmts) ->
@@ -118,8 +123,7 @@ let rec string_of_stmt = function
       string_of_expr e3  ^ ", " ^ string_of_stmt s ^ ")\n"
   | While(e, s) -> "While(" ^ string_of_expr e ^ ", " ^ string_of_stmt s ^ ")\n"
   | Typedef(t, s) -> "Typedef(" ^ string_of_typ t ^ ", " ^ s ^ ")\n"
-  | Bind(t, s) -> "Bind(" ^ string_of_typ t ^ ", " ^ s ^ ")\n"
-  | Binass(t, s, e) -> "Binass(" ^ string_of_typ t ^ ", " ^ s ^ ", " ^ string_of_expr e ^ ")\n"
+  | Vdecl(vd) -> string_of_vdecl vd
 
 let string_of_fdecl fdecl =
   string_of_typ fdecl.typ ^ " " ^
