@@ -51,7 +51,7 @@ let check (global_vdecls, functions) =
   then raise (Failure ("function print may not be defined")) else ();
   if List.mem "printf" (List.map (fun fd -> fd.fname) functions)
   then raise (Failure ("function print may not be defined")) else ();
-  if List.mem "prints" (List.map (fun fd -> fd.fname) functions)
+  if List.mem "printi" (List.map (fun fd -> fd.fname) functions)
   then raise (Failure ("function print may not be defined")) else ();
 
 
@@ -75,8 +75,7 @@ let check (global_vdecls, functions) =
   let built_in_decls = List.fold_right2 (StringMap.add)
                         built_in_decls_names
                         built_in_decls_funcs
-                        (StringMap.singleton "print"
-                                { typ = DataType(Void); fname = "print"; formals = [(DataType(String), "x")]; body = [] })
+                        (StringMap.singleton "print" { typ = DataType(Void); fname = "print"; formals = [(DataType(String), "x")]; body = [] })
   in
 
 
