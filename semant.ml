@@ -75,11 +75,11 @@ let check (global_vdecls, functions) =
   if List.mem "print" (List.map (fun fd -> fd.fname) functions)
   then raise (Failure ("function print may not be defined")) else ();
   if List.mem "printb" (List.map (fun fd -> fd.fname) functions)
-  then raise (Failure ("function print may not be defined")) else ();
+  then raise (Failure ("function printb may not be defined")) else ();
   if List.mem "printf" (List.map (fun fd -> fd.fname) functions)
-  then raise (Failure ("function print may not be defined")) else ();
+  then raise (Failure ("function printf may not be defined")) else ();
   if List.mem "printi" (List.map (fun fd -> fd.fname) functions)
-  then raise (Failure ("function print may not be defined")) else ();
+  then raise (Failure ("function printi may not be defined")) else ();
 
 
   report_duplicate (fun n -> "duplicate function " ^ n)
@@ -92,6 +92,12 @@ let check (global_vdecls, functions) =
   (* Function declaration for a named function *)
   Hashtbl.add global_vars "print" 
               (FuncType([DataType(Void); DataType(String)]));
+  Hashtbl.add global_vars "printb"
+              (FuncType([DataType(Void); DataType(Bool)]));
+  Hashtbl.add global_vars "printf"
+              (FuncType([DataType(Void); DataType(Float)]));
+  Hashtbl.add global_vars "printi"
+              (FuncType([DataType(Void); DataType(Int)]));
 
   let get_functype fdecl = FuncType(fdecl.typ :: (List.map fst fdecl.formals)) in
   List.iter (fun fd -> Hashtbl.add global_vars fd.fname (get_functype fd)) 
