@@ -1,7 +1,10 @@
 # This program prints "hello world".
 
+int global_int = 2;
+
 int main()
 {
-  print("hello world\n");
+  printi(2);
+  print("hello world");
   return 0;
 }

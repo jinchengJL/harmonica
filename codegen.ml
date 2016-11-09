@@ -65,7 +65,8 @@ let translate (globals, functions) =
     let (the_function, _) = StringMap.find fdecl.A.fname function_decls in
     let builder = L.builder_at_end context (L.entry_block the_function) in
 
-    let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder in
+    let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder
+    and float_format_str = L.build_global_stringptr "%f\n" "fmt" builder in
     
     (* Construct the function's "locals": formal arguments and locally
        declared variables.  Allocate each on the stack, initialize their
@@ -114,7 +115,7 @@ let translate (globals, functions) =
 	        | A.Leq     -> L.build_icmp L.Icmp.Sle
 	        | A.Greater -> L.build_icmp L.Icmp.Sgt
 	        | A.Geq     -> L.build_icmp L.Icmp.Sge
-          | A.Member  -> (*TODO*) L.build_add
+          | A.Member  -> (*TODO: I don't think member access should be an operator.*) L.build_add
 	       ) e1' e2' "tmp" builder
       | A.Unop(op, e) ->
 	       let e' = expr builder e in
@@ -125,7 +126,7 @@ let translate (globals, functions) =
          let e' = expr builder e in
 	       ignore (L.build_store e' (lookup s) builder); e'
 
-      | A.Call ("print", [e]) ->
+      (*| A.Call ("print", [e]) ->
          (match List.hd [e] with
           | A.StringLit s ->
              let head = expr builder (List.hd [e]) in
@@ -133,9 +134,24 @@ let translate (globals, functions) =
              
              print_endline ";a.string print called";
              L.build_call printf_func [| llvm_val |] "string_printf" builder
-
+          
           | _ -> print_endline ";_ print called"; L.build_call printf_func [| int_format_str ; (expr builder e) |] "abcd" builder
-         )
+         )*)
+      | A.Call ("printi", [e]) -> 
+        L.build_call printf_func [| int_format_str ; (expr builder e) |]
+	    "printf" builder
+      | A.Call ("printb", [e]) ->
+	      L.build_call printf_func [| int_format_str ; (expr builder e) |]
+	    "printf" builder
+
+      | A.Call ("print", [e]) -> let get_string = function A.StringLit s -> s | _ -> "" in
+        let s_ptr = L.build_global_stringptr ((get_string e) ^ "\n") ".str" builder in
+        L.build_call printf_func [| s_ptr |] "printf" builder
+
+      | A.Call ("printf", [e]) ->
+        L.build_call printf_func [| float_format_str ; (expr builder e) |]
+        "printf" builder
+
 
       | A.Call (f, act) ->
           let (fdef, fdecl) = StringMap.find f function_decls in
