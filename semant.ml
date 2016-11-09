@@ -47,6 +47,13 @@ let check (global_vdecls, functions) =
 
   if List.mem "print" (List.map (fun fd -> fd.fname) functions)
   then raise (Failure ("function print may not be defined")) else ();
+  if List.mem "printb" (List.map (fun fd -> fd.fname) functions)
+  then raise (Failure ("function print may not be defined")) else ();
+  if List.mem "printf" (List.map (fun fd -> fd.fname) functions)
+  then raise (Failure ("function print may not be defined")) else ();
+  if List.mem "prints" (List.map (fun fd -> fd.fname) functions)
+  then raise (Failure ("function print may not be defined")) else ();
+
 
   report_duplicate (fun n -> "duplicate function " ^ n)
     (List.map (fun fd -> fd.fname) functions);
@@ -55,11 +62,24 @@ let check (global_vdecls, functions) =
   
 
   (* Function declaration for a named function *)
-  let built_in_decls =  StringMap.singleton "print"
-     { typ = DataType(Void); fname = "print"; formals = [(DataType(String), "x")];
-       body = [] }
+  let built_in_decls_funcs =  
+      [ 
+        { typ = DataType(Void); fname = "printb"; formals = [(DataType(Bool), "x")]; body = [] };
+        { typ = DataType(Void); fname = "printf"; formals = [(DataType(Float), "x")]; body = [] };
+        { typ = DataType(Void); fname = "printi"; formals = [(DataType(Int), "x")]; body = [] }
+      ]
    in
+
+  let built_in_decls_names = [ "printb"; "printf"; "printi" ] in
      
+  let built_in_decls = List.fold_right2 (StringMap.add)
+                        built_in_decls_names
+                        built_in_decls_funcs
+                        (StringMap.singleton "print"
+                                { typ = DataType(Void); fname = "print"; formals = [(DataType(String), "x")]; body = [] })
+  in
+
+
   let function_decls = List.fold_left (fun m fd -> StringMap.add fd.fname fd m)
                          built_in_decls functions
   in
