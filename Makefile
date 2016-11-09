@@ -16,6 +16,7 @@ harmonica.native :
 clean :
 	ocamlbuild -clean
 	rm -rf testall.log *.diff harmonica scanner.ml parser.ml parser.mli
+	rm -rf *.err *.ll
 	rm -rf *.cmx *.cmi *.cmo *.cmx *.o
 	rm -rf *~ \#*
 
