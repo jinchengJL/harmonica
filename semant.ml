@@ -18,6 +18,15 @@ let check (global_vdecls, functions) =
 
   let global_binds = List.map vdecl_to_bind global_vdecls in
 
+  (* User-defined types *)
+  let user_types = Hashtbl.create 10 in
+  let rec resolve_user_type usert =
+    (match usert with
+       UserType(s) -> (try resolve_user_type (Hashtbl.find user_types s)
+                       with Not_found -> raise (Failure ("undefined type " ^ s)))
+     | _ -> usert)
+  in
+
   (* Raise an exception if the given list has a duplicate *)
   let report_duplicate exceptf list =
     let rec helper = function
@@ -31,28 +40,6 @@ let check (global_vdecls, functions) =
   let check_not_void exceptf = function
       (DataType(Void), n) -> raise (Failure (exceptf n))
     | _ -> ()
-  in
-
-  (**** Checking Global Variables ****)
-
-  List.iter (check_not_void (fun n -> "illegal void global " ^ n)) global_binds;
-  report_duplicate (fun n -> "duplicate global " ^ n) (List.map snd global_binds);
-
-  (**** Checking Functions ****)
-
-  if List.mem "print" (List.map (fun fd -> fd.fname) functions)
-  then raise (Failure ("function print may not be defined")) else ();
-
-  report_duplicate (fun n -> "duplicate function " ^ n)
-    (List.map (fun fd -> fd.fname) functions);
-
-  (* User-defined types *)
-  let user_types = Hashtbl.create 10 in
-  let rec resolve_user_type usert =
-    (match usert with
-       UserType(s) -> (try resolve_user_type (Hashtbl.find user_types s)
-                       with Not_found -> raise (Failure ("undefined type " ^ s)))
-     | _ -> usert)
   in
 
   (* Structural equality *)
@@ -77,28 +64,38 @@ let check (global_vdecls, functions) =
      if typ_equal lvaluet rvaluet then lvaluet else raise err
   in
 
+  (**** Checking Global Variables ****)
+
+  List.iter (check_not_void (fun n -> "illegal void global " ^ n)) global_binds;
+  report_duplicate (fun n -> "duplicate global " ^ n) (List.map snd global_binds);
+  (* TODO: check global binass statements *)
+
+  (**** Checking Functions ****)
+
+  if List.mem "print" (List.map (fun fd -> fd.fname) functions)
+  then raise (Failure ("function print may not be defined")) else ();
+
+  report_duplicate (fun n -> "duplicate function " ^ n)
+    (List.map (fun fd -> fd.fname) functions);
+
   (* Global variable table *)
   let global_vars = Hashtbl.create 10 in
   List.iter (fun (t, name) -> Hashtbl.add global_vars name t) global_binds;
 
   (* Function declaration for a named function *)
-  let built_in_decls =  StringMap.singleton "print"
-     { typ = DataType(Void); fname = "print"; formals = [(DataType(String), "x")];
-       body = [] }
-   in
+  Hashtbl.add global_vars "print" 
+              (FuncType([DataType(Void); DataType(String)]));
 
-  let function_decls = List.fold_left (fun m fd -> StringMap.add fd.fname fd m)
-                         built_in_decls functions
-  in
+  let get_functype fdecl = FuncType(fdecl.typ :: (List.map fst fdecl.formals)) in
+  List.iter (fun fd -> Hashtbl.add global_vars fd.fname (get_functype fd)) 
+            functions;
 
-  let function_decl s = try StringMap.find s function_decls
-       with Not_found -> raise (Failure ("unrecognized function " ^ s))
-  in
+  (* Ensure "main" is defined *)
+  ignore (try List.find (fun f -> f.fname = "main") functions
+          with Not_found -> raise (Failure ("main function undefined")));
 
-  let _ = function_decl "main" in (* Ensure "main" is defined *)
 
   let check_function func =
-
     List.iter (check_not_void (fun n -> "illegal void formal " ^ n ^
       " in " ^ func.fname)) func.formals;
 
@@ -107,7 +104,8 @@ let check (global_vdecls, functions) =
 
     (* Local variables and formals *)
     let local_vars = Hashtbl.create 10 in
-    List.iter (fun (t, name) -> Hashtbl.add local_vars name t) func.formals;
+    List.iter (fun (t, name) -> 
+                Hashtbl.add local_vars name t) func.formals;
     
     (* NOTE: local variable overrides global variable with same name *)
     let type_of_identifier s =
@@ -164,17 +162,23 @@ let check (global_vdecls, functions) =
 				                                                       " = " ^ string_of_typ rt ^ " in " ^ 
 				                                                         string_of_expr ex))
       | Call(fname, actuals) as call -> 
-         let fd = function_decl fname in
-         if List.length actuals != List.length fd.formals then
-           raise (Failure ("expecting " ^ string_of_int
-             (List.length fd.formals) ^ " arguments in " ^ string_of_expr call))
-         else
-           List.iter2 (fun (ft, _) e -> let et = expr e in
-              ignore (check_assign ft et
-                (Failure ("illegal actual argument found " ^ string_of_typ et ^
-                " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
-             fd.formals actuals;
-           fd.typ
+         let ftype = type_of_identifier fname in
+         (match ftype with
+            FuncType(tlist) ->
+            let formals = List.tl tlist in
+            let ret = List.hd tlist in
+            if List.length actuals != List.length formals then
+              raise (Failure ("expecting " ^ string_of_int
+               (List.length formals) ^ " arguments in " ^ string_of_expr call))
+            else
+              List.iter2 (fun ft e -> 
+                           let et = expr e in
+                           ignore (check_assign ft et
+                           (Failure ("illegal actual argument found " ^ string_of_typ et ^ " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
+                         formals actuals;
+            ret
+          | _ -> raise (Failure (fname ^ " is not a function"))
+         )
     in
 
     let check_bool_expr e = if expr e !=DataType(Bool)
@@ -193,7 +197,7 @@ let check (global_vdecls, functions) =
           | [] -> ()
         in check_block sl
       | Expr e -> ignore (expr e)
-      | Return e -> let t = expr e in if t = func.typ then () else
+      | Return e -> let t = expr e in if typ_equal t func.typ then () else
          raise (Failure ("return gives " ^ string_of_typ t ^ " expected " ^
                          string_of_typ func.typ ^ " in " ^ string_of_expr e))
            
@@ -213,8 +217,9 @@ let check (global_vdecls, functions) =
 				                                      " = " ^ string_of_typ rtype ^ " in " ^ 
 				                                        string_of_expr e))))
     in
-
-    stmt (Block func.body)
-   
+    
+    let res = stmt (Block func.body) in
+    res
+         
   in
   List.iter check_function functions

@@ -75,7 +75,7 @@ typ:
   | LIST LBRACKET typ RBRACKET { List($3) }
   | CHANNEL LBRACKET typ RBRACKET { Channel($3) }
   | ID { UserType($1) }
-  | LT func_typ_list GT { FuncType(List.rev $2) }
+  | LT func_typ_list GT { FuncType((List.hd $2) :: List.rev (List.tl $2)) }
 
 vdecl:
     typ ID SEMI { Bind($1, $2) }
