@@ -45,7 +45,9 @@ let check (global_vdecls, functions) =
   (* Structural equality *)
   let rec typ_equal t1 t2 = 
     (match (t1, t2) with
-       (DataType(p1), DataType(p2)) -> p1 == p2
+       (DataType(p1), DataType(p2)) -> if p1 == Unknown || p2 == Unknown 
+                                       then true 
+                                       else p1 == p2
      | (Tuple(tlist1), Tuple(tlist2)) -> 
         List.for_all2 typ_equal tlist1 tlist2
      | (List(t1'), List(t2')) -> typ_equal t1' t2'
@@ -90,7 +92,7 @@ let check (global_vdecls, functions) =
   List.iter (fun (t, name) -> Hashtbl.add global_vars name t) global_binds;
 
   (* Function declaration for a named function *)
-  Hashtbl.add global_vars "print" 
+  Hashtbl.add global_vars "print"
               (FuncType([DataType(Void); DataType(String)]));
   Hashtbl.add global_vars "printb"
               (FuncType([DataType(Void); DataType(Bool)]));
@@ -106,7 +108,6 @@ let check (global_vdecls, functions) =
   (* Ensure "main" is defined *)
   ignore (try List.find (fun f -> f.fname = "main") functions
           with Not_found -> raise (Failure ("main function undefined")));
-
 
   let check_function func =
     List.iter (check_not_void (fun n -> "illegal void formal " ^ n ^
@@ -143,7 +144,7 @@ let check (global_vdecls, functions) =
          (* TODO: type of empty lists (unknown?) *)
          let tlist = List.map expr elist in
          if (List.length tlist) == 0
-         then raise (Failure ("not yet implemented"))
+         then List(DataType(Unknown))
          else
            let canon = List.hd tlist in
            if List.for_all (fun t -> t == canon) tlist

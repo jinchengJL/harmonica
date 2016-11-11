@@ -5,7 +5,7 @@ type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
 
 type uop = Neg | Not
 
-type primitive = Int | Bool | Void | String | Float
+type primitive = Int | Bool | Void | String | Float | Unknown
 
 type typ = 
     DataType of primitive 
@@ -97,6 +97,7 @@ let rec string_of_typ = function
   | DataType(Void) -> "Void"
   | DataType(Float) -> "Float"
   | DataType(String) -> "String"
+  | DataType(Unknown) -> "Unknown"
   | Tuple(tlist) -> "Tuple(" ^ String.concat ", " (List.map string_of_typ tlist) ^ ")"
   | List(t) -> "List(" ^ string_of_typ t ^ ")"
   | Struct(id, vlist) -> "Struct(" ^ id ^ ", " ^ String.concat "" (List.map string_of_bind vlist) ^ ")"
