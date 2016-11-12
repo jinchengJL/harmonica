@@ -71,21 +71,8 @@ let check (global_vdecls, functions) =
   report_duplicate (fun n -> "duplicate function " ^ n)
     (List.map (fun fd -> fd.fname) functions);
 
-  (**** Checking Global Variables ****)
-  let vdecl_to_bind = function
-      Bind(t, n) -> (t, n)
-    | Binass(t, n, _) -> (t, n)
-  in
-
-  let global_binds = List.map vdecl_to_bind global_vdecls in
-  List.iter (check_not_void (fun n -> "illegal void global " ^ n)) global_binds;
-  report_duplicate (fun n -> "duplicate global variable " ^ n) 
-                   (List.map snd global_binds);
-  (* TODO: check global binass statements *)
-
   (* Global variable table *)
   let global_vars = Hashtbl.create 10 in
-  List.iter (fun (t, name) -> Hashtbl.add global_vars name t) global_binds;
 
   (* Function declaration for a named function *)
   Hashtbl.add global_vars "print"
@@ -118,12 +105,6 @@ let check (global_vdecls, functions) =
 
   let type_of_identifier s = type_of_identifier_subr s (!symbol_tables) in
     
-  let check_bind t name = 
-    let scope_table = List.hd (!symbol_tables) in
-    if Hashtbl.mem scope_table name then
-      raise (Failure ("redefinition of " ^ name))
-    else Hashtbl.add scope_table name t in
-
   (* Return the type of an expression or throw an exception *)
   let rec expr = function
 	    Literal _ -> DataType(Int)
@@ -188,6 +169,26 @@ let check (global_vdecls, functions) =
        )
   in
 
+  (*** Checking Global Variables ***)
+  let check_bind t name = 
+    check_not_void (fun n -> "illegal void variable " ^ n) (t, name);
+    let scope_table = List.hd (!symbol_tables) in
+    if Hashtbl.mem scope_table name then
+      raise (Failure ("redefinition of " ^ name))
+    else Hashtbl.add scope_table name t in
+
+  let check_vdecl = function
+      Bind(t, name) -> check_bind t name
+    | Binass(t, name, e) -> 
+       check_bind t name;
+       let rtype = expr e in
+       ignore (check_assign t rtype 
+                            (Failure ("illegal assignment " ^ string_of_typ t ^
+				                                " = " ^ string_of_typ rtype ^ " in " ^ 
+				                                  string_of_expr e)))
+  in
+  List.iter check_vdecl global_vdecls;
+
   let check_function func =
     List.iter (check_not_void (fun n -> "illegal void formal " ^ n ^
       " in " ^ func.fname)) func.formals;
@@ -230,16 +231,7 @@ let check (global_vdecls, functions) =
                                ignore (expr e3); stmt st
       | While(p, s) -> check_bool_expr p; stmt s
       | Typedef(t, s) -> Hashtbl.add user_types s (resolve_user_type t)
-      | Vdecl(vd) ->
-         (match vd with
-            Bind(t, name) -> check_bind t name
-          | Binass(t, name, e) -> 
-             check_bind t name;
-             let rtype = expr e in
-             ignore (check_assign t rtype 
-                                  (Failure ("illegal assignment " ^ string_of_typ t ^
-				                                      " = " ^ string_of_typ rtype ^ " in " ^ 
-				                                        string_of_expr e))))
+      | Vdecl(vd) -> check_vdecl vd
     in
 
     stmt (Block func.body);
