@@ -32,7 +32,7 @@ open Ast
 %%
 
 program:
-  decls EOF { $1 }
+  decls EOF { List.rev (fst $1), List.rev (snd $1) }
 
 decls:
    /* nothing */ { [], [] }
