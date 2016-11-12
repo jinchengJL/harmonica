@@ -1,0 +1,1 @@
+Fatal error: exception Failure("illegal assignment UserType(newtype) = List(Int) in ListLit(Literal(1), Literal(2), Literal(3))")
