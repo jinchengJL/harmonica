@@ -5,9 +5,7 @@ open Ast
 module StringMap = Map.Make(String)
 
 (* Semantic checking of a program. Returns void if successful,
-   throws an exception if something is wrong.
-
-   Check each global variable, then check each function *)
+   throws an exception if something is wrong. *)
 
 let check (global_vdecls, functions) =
   (* Raise an exception if the given list has a duplicate *)
@@ -59,14 +57,13 @@ let check (global_vdecls, functions) =
   in
 
   (**** Checking Functions Definitions ****)
-  if List.mem "print" (List.map (fun fd -> fd.fname) functions)
-  then raise (Failure ("function print may not be defined")) else ();
-  if List.mem "printb" (List.map (fun fd -> fd.fname) functions)
-  then raise (Failure ("function printb may not be defined")) else ();
-  if List.mem "printf" (List.map (fun fd -> fd.fname) functions)
-  then raise (Failure ("function printf may not be defined")) else ();
-  if List.mem "printi" (List.map (fun fd -> fd.fname) functions)
-  then raise (Failure ("function printi may not be defined")) else ();
+  let builtins = ["print"; "printb"; "printf"; "printi"] in
+  let builtin_duplicates = List.filter (fun fname -> List.mem fname builtins)
+                                       (List.map (fun fd -> fd.fname) functions) in
+  if List.length builtin_duplicates > 0
+  then raise (Failure ("function " ^ 
+                         (String.concat ", " builtin_duplicates) ^ 
+                           " may not be defined")) else ();
 
   report_duplicate (fun n -> "duplicate function " ^ n)
     (List.map (fun fd -> fd.fname) functions);
@@ -189,6 +186,7 @@ let check (global_vdecls, functions) =
   in
   List.iter check_vdecl global_vdecls;
 
+  (*** Checking Function Contents ***)
   let check_function func =
     List.iter (check_not_void (fun n -> "illegal void formal " ^ n ^
       " in " ^ func.fname)) func.formals;
