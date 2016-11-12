@@ -10,23 +10,6 @@ module StringMap = Map.Make(String)
    Check each global variable, then check each function *)
 
 let check (global_vdecls, functions) =
-
-  let vdecl_to_bind = function
-      Bind(t, n) -> (t, n)
-    | Binass(t, n, _) -> (t, n)
-  in
-
-  let global_binds = List.map vdecl_to_bind global_vdecls in
-
-  (* User-defined types *)
-  let user_types = Hashtbl.create 10 in
-  let rec resolve_user_type usert =
-    (match usert with
-       UserType(s) -> (try resolve_user_type (Hashtbl.find user_types s)
-                       with Not_found -> raise (Failure ("undefined type " ^ s)))
-     | _ -> usert)
-  in
-
   (* Raise an exception if the given list has a duplicate *)
   let report_duplicate exceptf list =
     let rec helper = function
@@ -42,7 +25,16 @@ let check (global_vdecls, functions) =
     | _ -> ()
   in
 
-  (* Structural equality *)
+  (* User-defined types *)
+  let user_types = Hashtbl.create 10 in
+  let rec resolve_user_type usert =
+    (match usert with
+       UserType(s) -> (try resolve_user_type (Hashtbl.find user_types s)
+                       with Not_found -> raise (Failure ("undefined type " ^ s)))
+     | _ -> usert)
+  in
+
+  (* Structural type equality *)
   let rec typ_equal t1 t2 = 
     (match (t1, t2) with
        (DataType(p1), DataType(p2)) -> if p1 = Unknown || p2 = Unknown 
@@ -66,13 +58,7 @@ let check (global_vdecls, functions) =
      if typ_equal lvaluet rvaluet then lvaluet else raise err
   in
 
-  (**** Checking Global Variables ****)
-
-  List.iter (check_not_void (fun n -> "illegal void global " ^ n)) global_binds;
-  report_duplicate (fun n -> "duplicate global " ^ n) (List.map snd global_binds);
-  (* TODO: check global binass statements *)
-
-  (**** Checking Functions ****)
+  (**** Checking Functions Definitions ****)
   if List.mem "print" (List.map (fun fd -> fd.fname) functions)
   then raise (Failure ("function print may not be defined")) else ();
   if List.mem "printb" (List.map (fun fd -> fd.fname) functions)
@@ -84,6 +70,18 @@ let check (global_vdecls, functions) =
 
   report_duplicate (fun n -> "duplicate function " ^ n)
     (List.map (fun fd -> fd.fname) functions);
+
+  (**** Checking Global Variables ****)
+  let vdecl_to_bind = function
+      Bind(t, n) -> (t, n)
+    | Binass(t, n, _) -> (t, n)
+  in
+
+  let global_binds = List.map vdecl_to_bind global_vdecls in
+  List.iter (check_not_void (fun n -> "illegal void global " ^ n)) global_binds;
+  report_duplicate (fun n -> "duplicate global variable " ^ n) 
+                   (List.map snd global_binds);
+  (* TODO: check global binass statements *)
 
   (* Global variable table *)
   let global_vars = Hashtbl.create 10 in
@@ -107,6 +105,89 @@ let check (global_vdecls, functions) =
   ignore (try List.find (fun f -> f.fname = "main") functions
           with Not_found -> raise (Failure ("main function undefined")));
 
+  (* List of all symbol tables in scope *)
+  let symbol_tables = ref [global_vars] in
+
+  (* NOTE: inner-scope variable overrides outer-scope variable with same name *)
+  let rec type_of_identifier_subr s tables =
+    (match tables with
+       [] -> raise (Failure ("undeclared identifier " ^ s))
+     | table :: tl -> try Hashtbl.find table s
+                      with Not_found -> type_of_identifier_subr s tl)
+  in
+
+  let type_of_identifier s = type_of_identifier_subr s (!symbol_tables) in
+    
+  let check_bind t name = 
+    let scope_table = List.hd (!symbol_tables) in
+    if Hashtbl.mem scope_table name then
+      raise (Failure ("redefinition of " ^ name))
+    else Hashtbl.add scope_table name t in
+
+  (* Return the type of an expression or throw an exception *)
+  let rec expr = function
+	    Literal _ -> DataType(Int)
+    | BoolLit _ -> DataType(Bool)
+    | StringLit _ -> DataType(String)
+    | FloatLit _ -> DataType(Float)
+    | TupleLit elist -> Tuple (List.map expr elist)
+    | ListLit elist as e ->
+       let tlist = List.map expr elist in
+       if (List.length tlist) = 0
+       then List(DataType(Unknown))
+       else
+         let canon = List.hd tlist in
+         if List.for_all (fun t -> t = canon) tlist
+         then List(canon)
+         else raise (Failure ("inconsistent types in list literal " 
+                              ^ string_of_expr e))
+    | Id s -> type_of_identifier s
+    | Binop(e1, op, e2) as e -> 
+       let t1 = expr e1 and t2 = expr e2 in
+	     (match op with
+          Add | Sub | Mult | Div when t1 = DataType(Int) && t2 = DataType(Int)
+                -> DataType(Int)
+	        | Equal | Neq when t1 = t2 -> DataType(Bool)
+	        | Less | Leq | Greater | Geq when t1 = DataType(Int) && t2 = DataType(Int)
+            -> DataType(Bool)
+	        | And | Or when t1 = DataType(Bool)&& t2 = DataType(Bool) -> DataType(Bool)
+          | _ -> raise (Failure ("illegal binary operator " ^
+                                   string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
+                                     string_of_typ t2 ^ " in " ^ string_of_expr e))
+       )
+    | Unop(op, e) as ex -> 
+       let t = expr e in
+	     (match op with
+	        Neg when t = DataType(Int)  -> DataType(Int)
+	      | Not when t = DataType(Bool) -> DataType(Bool)
+        | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
+	  		                         string_of_typ t ^ " in " ^ string_of_expr ex)))
+    | Noexpr -> DataType(Void)
+    | Assign(var, e) as ex -> let lt = type_of_identifier var
+                              and rt = expr e in
+                              check_assign lt rt (Failure ("illegal assignment " ^ string_of_typ lt ^
+				                                                     " = " ^ string_of_typ rt ^ " in " ^ 
+				                                                       string_of_expr ex))
+    | Call(fname, actuals) as call -> 
+       let ftype = type_of_identifier fname in
+       (match ftype with
+          FuncType(tlist) ->
+          let formals = List.tl tlist in
+          let ret = List.hd tlist in
+          if List.length actuals != List.length formals then
+            raise (Failure ("expecting " ^ string_of_int
+                                             (List.length formals) ^ " arguments in " ^ string_of_expr call))
+          else
+            List.iter2 (fun ft e -> 
+                         let et = expr e in
+                         ignore (check_assign ft et
+                                              (Failure ("illegal actual argument found " ^ string_of_typ et ^ " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
+                       formals actuals;
+          ret
+        | _ -> raise (Failure (fname ^ " is not a function"))
+       )
+  in
+
   let check_function func =
     List.iter (check_not_void (fun n -> "illegal void formal " ^ n ^
       " in " ^ func.fname)) func.formals;
@@ -118,96 +199,25 @@ let check (global_vdecls, functions) =
     let local_vars = Hashtbl.create 10 in
     List.iter (fun (t, name) -> 
                 Hashtbl.add local_vars name t) func.formals;
-    
-    (* NOTE: local variable overrides global variable with same name *)
-    let type_of_identifier s =
-      try Hashtbl.find local_vars s
-      with Not_found -> 
-        try Hashtbl.find global_vars s
-        with Not_found -> raise (Failure ("undeclared identifier " ^ s))
-    in
+    symbol_tables := local_vars :: (!symbol_tables);
 
-    let check_bind t name = if Hashtbl.mem local_vars name then
-                              raise (Failure ("redefinition of " ^ name))
-                            else Hashtbl.add local_vars name t in
-
-    (* Return the type of an expression or throw an exception *)
-    let rec expr = function
-	      Literal _ -> DataType(Int)
-      | BoolLit _ -> DataType(Bool)
-      | StringLit _ -> DataType(String)
-      | FloatLit _ -> DataType(Float)
-      | TupleLit elist -> Tuple (List.map expr elist)
-      | ListLit elist as e ->
-         let tlist = List.map expr elist in
-         if (List.length tlist) = 0
-         then List(DataType(Unknown))
-         else
-           let canon = List.hd tlist in
-           if List.for_all (fun t -> t = canon) tlist
-           then List(canon)
-           else raise (Failure ("inconsistent types in list literal " 
-                                ^ string_of_expr e))
-      | Id s -> type_of_identifier s
-      | Binop(e1, op, e2) as e -> 
-         let t1 = expr e1 and t2 = expr e2 in
-	       (match op with
-            Add | Sub | Mult | Div when t1 = DataType(Int) && t2 = DataType(Int)
-                  -> DataType(Int)
-	          | Equal | Neq when t1 = t2 -> DataType(Bool)
-	          | Less | Leq | Greater | Geq when t1 = DataType(Int) && t2 = DataType(Int)
-              -> DataType(Bool)
-	          | And | Or when t1 = DataType(Bool)&& t2 = DataType(Bool) -> DataType(Bool)
-            | _ -> raise (Failure ("illegal binary operator " ^
-                                     string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
-                                       string_of_typ t2 ^ " in " ^ string_of_expr e))
-         )
-      | Unop(op, e) as ex -> 
-         let t = expr e in
-	       (match op with
-	          Neg when t = DataType(Int)  -> DataType(Int)
-	        | Not when t = DataType(Bool) -> DataType(Bool)
-          | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
-	  		                           string_of_typ t ^ " in " ^ string_of_expr ex)))
-      | Noexpr -> DataType(Void)
-      | Assign(var, e) as ex -> let lt = type_of_identifier var
-                                and rt = expr e in
-                                check_assign lt rt (Failure ("illegal assignment " ^ string_of_typ lt ^
-				                                                       " = " ^ string_of_typ rt ^ " in " ^ 
-				                                                         string_of_expr ex))
-      | Call(fname, actuals) as call -> 
-         let ftype = type_of_identifier fname in
-         (match ftype with
-            FuncType(tlist) ->
-            let formals = List.tl tlist in
-            let ret = List.hd tlist in
-            if List.length actuals != List.length formals then
-              raise (Failure ("expecting " ^ string_of_int
-               (List.length formals) ^ " arguments in " ^ string_of_expr call))
-            else
-              List.iter2 (fun ft e -> 
-                           let et = expr e in
-                           ignore (check_assign ft et
-                           (Failure ("illegal actual argument found " ^ string_of_typ et ^ " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
-                         formals actuals;
-            ret
-          | _ -> raise (Failure (fname ^ " is not a function"))
-         )
-    in
-
-    let check_bool_expr e = if expr e !=DataType(Bool)
-     then raise (Failure ("expectedDataType(Bool)ean expression in " ^ string_of_expr e))
+    let check_bool_expr e = if expr e != DataType(Bool)
+     then raise (Failure ("expected boolean expression in " ^ string_of_expr e))
      else () in
 
     (* Verify a statement or throw an exception *)
     let rec stmt = function
 	      Block sl -> 
-        (* TODO: Block-level scoping, closures *)
         let rec check_block = function
             [Return _ as s] -> stmt s
           | Return _ :: _ -> raise (Failure "nothing may follow a return")
-          | Block sl :: ss -> check_block (sl @ ss)
-          | s :: ss -> stmt s ; check_block ss
+          | s :: ss ->
+             (* New symbol table for new scope *)
+             let block_vars = Hashtbl.create 10 in
+             symbol_tables := block_vars :: (!symbol_tables);
+             stmt s;
+             check_block ss;
+             symbol_tables := List.tl (!symbol_tables)
           | [] -> ()
         in check_block sl
       | Expr e -> ignore (expr e)
@@ -231,9 +241,9 @@ let check (global_vdecls, functions) =
 				                                      " = " ^ string_of_typ rtype ^ " in " ^ 
 				                                        string_of_expr e))))
     in
-    
-    let res = stmt (Block func.body) in
-    res
-         
+
+    stmt (Block func.body);
+    symbol_tables := List.tl (!symbol_tables);
+
   in
   List.iter check_function functions
