@@ -45,14 +45,14 @@ let check (global_vdecls, functions) =
   (* Structural equality *)
   let rec typ_equal t1 t2 = 
     (match (t1, t2) with
-       (DataType(p1), DataType(p2)) -> if p1 == Unknown || p2 == Unknown 
+       (DataType(p1), DataType(p2)) -> if p1 = Unknown || p2 = Unknown 
                                        then true 
-                                       else p1 == p2
+                                       else p1 = p2
      | (Tuple(tlist1), Tuple(tlist2)) -> 
         List.for_all2 typ_equal tlist1 tlist2
      | (List(t1'), List(t2')) -> typ_equal t1' t2'
      | (Channel(t1'), Channel(t2')) -> typ_equal t1' t2'
-     | (Struct(name1, _), Struct(name2, _)) -> name1 == name2 (* TODO: ok? *)
+     | (Struct(name1, _), Struct(name2, _)) -> name1 = name2 (* TODO: ok? *)
      | (UserType(_), UserType(_)) -> 
         typ_equal (resolve_user_type t1) (resolve_user_type t2)
      | (FuncType(tlist1), FuncType(tlist2)) -> 
@@ -73,7 +73,6 @@ let check (global_vdecls, functions) =
   (* TODO: check global binass statements *)
 
   (**** Checking Functions ****)
-
   if List.mem "print" (List.map (fun fd -> fd.fname) functions)
   then raise (Failure ("function print may not be defined")) else ();
   if List.mem "printb" (List.map (fun fd -> fd.fname) functions)
@@ -82,7 +81,6 @@ let check (global_vdecls, functions) =
   then raise (Failure ("function printf may not be defined")) else ();
   if List.mem "printi" (List.map (fun fd -> fd.fname) functions)
   then raise (Failure ("function printi may not be defined")) else ();
-
 
   report_duplicate (fun n -> "duplicate function " ^ n)
     (List.map (fun fd -> fd.fname) functions);
@@ -141,23 +139,25 @@ let check (global_vdecls, functions) =
       | FloatLit _ -> DataType(Float)
       | TupleLit elist -> Tuple (List.map expr elist)
       | ListLit elist as e ->
-         (* TODO: type of empty lists (unknown?) *)
          let tlist = List.map expr elist in
-         if (List.length tlist) == 0
+         if (List.length tlist) = 0
          then List(DataType(Unknown))
          else
            let canon = List.hd tlist in
-           if List.for_all (fun t -> t == canon) tlist
+           if List.for_all (fun t -> t = canon) tlist
            then List(canon)
-           else raise (Failure ("inconsistent types in list literal " ^ string_of_expr e))
+           else raise (Failure ("inconsistent types in list literal " 
+                                ^ string_of_expr e))
       | Id s -> type_of_identifier s
       | Binop(e1, op, e2) as e -> 
          let t1 = expr e1 and t2 = expr e2 in
 	       (match op with
-            Add | Sub | Mult | Div when t1 =DataType(Int)&& t2 =DataType(Int)->DataType(Int)
-	          | Equal | Neq when t1 = t2 ->DataType(Bool)
-	          | Less | Leq | Greater | Geq when t1 =DataType(Int)&& t2 =DataType(Int)->DataType(Bool)
-	          | And | Or when t1 =DataType(Bool)&& t2 =DataType(Bool)->DataType(Bool)
+            Add | Sub | Mult | Div when t1 = DataType(Int) && t2 = DataType(Int)
+                  -> DataType(Int)
+	          | Equal | Neq when t1 = t2 -> DataType(Bool)
+	          | Less | Leq | Greater | Geq when t1 = DataType(Int) && t2 = DataType(Int)
+              -> DataType(Bool)
+	          | And | Or when t1 = DataType(Bool)&& t2 = DataType(Bool) -> DataType(Bool)
             | _ -> raise (Failure ("illegal binary operator " ^
                                      string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
                                        string_of_typ t2 ^ " in " ^ string_of_expr e))
@@ -165,8 +165,8 @@ let check (global_vdecls, functions) =
       | Unop(op, e) as ex -> 
          let t = expr e in
 	       (match op with
-	          Neg when t =DataType(Int)->DataType(Int)
-	        | Not when t =DataType(Bool)->DataType(Bool)
+	          Neg when t = DataType(Int)  -> DataType(Int)
+	        | Not when t = DataType(Bool) -> DataType(Bool)
           | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
 	  		                           string_of_typ t ^ " in " ^ string_of_expr ex)))
       | Noexpr -> DataType(Void)
@@ -202,7 +202,7 @@ let check (global_vdecls, functions) =
     (* Verify a statement or throw an exception *)
     let rec stmt = function
 	      Block sl -> 
-        (* TODO: Block-level scoping *)
+        (* TODO: Block-level scoping, closures *)
         let rec check_block = function
             [Return _ as s] -> stmt s
           | Return _ :: _ -> raise (Failure "nothing may follow a return")
