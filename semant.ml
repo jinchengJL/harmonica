@@ -4,9 +4,14 @@ open Ast
 
 module StringMap = Map.Make(String)
 
+type environment = {
+    externals: typ StringMap.t;
+    locals: typ StringMap.t;
+  }
+
 (* Semantic checking of a program. Returns void if successful,
    throws an exception if something is wrong. *)
-
+                     
 let check (global_vdecls, functions) =
   (* Raise an exception if the given list has a duplicate *)
   let report_duplicate exceptf list =
@@ -69,48 +74,45 @@ let check (global_vdecls, functions) =
     (List.map (fun fd -> fd.fname) functions);
 
   (* Global variable table *)
-  let global_vars = Hashtbl.create 10 in
-
-  (* Function declaration for a named function *)
-  Hashtbl.add global_vars "print"
-              (FuncType([DataType(Void); DataType(String)]));
-  Hashtbl.add global_vars "printb"
-              (FuncType([DataType(Void); DataType(Bool)]));
-  Hashtbl.add global_vars "printf"
-              (FuncType([DataType(Void); DataType(Float)]));
-  Hashtbl.add global_vars "printi"
-              (FuncType([DataType(Void); DataType(Int)]));
+  let builtins = List.fold_left 
+                   (fun map (name, t) -> StringMap.add name t map) 
+                   StringMap.empty
+                   [("print", FuncType([DataType(Void); DataType(String)]));
+                    ("printb", FuncType([DataType(Void); DataType(Bool)]));
+                    ("printf", FuncType([DataType(Void); DataType(Float)]));
+                    ("printi", FuncType([DataType(Void); DataType(Int)]))]
+  in
 
   let get_functype fdecl = FuncType(fdecl.typ :: (List.map fst fdecl.formals)) in
-  List.iter (fun fd -> Hashtbl.add global_vars fd.fname (get_functype fd)) 
-            functions;
+  let global_funcs = List.fold_left
+                       (fun map fd -> StringMap.add fd.fname 
+                                                    (get_functype fd)
+                                                    map)
+                       builtins
+                       functions
+  in
 
   (* Ensure "main" is defined *)
   ignore (try List.find (fun f -> f.fname = "main") functions
           with Not_found -> raise (Failure ("main function undefined")));
 
-  (* List of all symbol tables in scope *)
-  let symbol_tables = ref [global_vars] in
-
   (* NOTE: inner-scope variable overrides outer-scope variable with same name *)
-  let rec type_of_identifier_subr s tables =
-    (match tables with
-       [] -> raise (Failure ("undeclared identifier " ^ s))
-     | table :: tl -> try Hashtbl.find table s
-                      with Not_found -> type_of_identifier_subr s tl)
+  let type_of_identifier env s =
+    try StringMap.find s (env.locals)
+    with Not_found -> (
+      try StringMap.find s (env.externals)
+      with Not_found -> raise (Failure ("undeclared identifier " ^ s)))
   in
 
-  let type_of_identifier s = type_of_identifier_subr s (!symbol_tables) in
-    
   (* Return the type of an expression or throw an exception *)
-  let rec expr = function
+  let rec expr env = function
 	    Literal _ -> DataType(Int)
     | BoolLit _ -> DataType(Bool)
     | StringLit _ -> DataType(String)
     | FloatLit _ -> DataType(Float)
-    | TupleLit elist -> Tuple (List.map expr elist)
+    | TupleLit elist -> Tuple (List.map (expr env) elist)
     | ListLit elist as e ->
-       let tlist = List.map expr elist in
+       let tlist = List.map (expr env) elist in
        if (List.length tlist) = 0
        then List(DataType(Unknown))
        else
@@ -119,9 +121,9 @@ let check (global_vdecls, functions) =
          then List(canon)
          else raise (Failure ("inconsistent types in list literal " 
                               ^ string_of_expr e))
-    | Id s -> type_of_identifier s
+    | Id s -> type_of_identifier env s
     | Binop(e1, op, e2) as e -> 
-       let t1 = expr e1 and t2 = expr e2 in
+       let t1 = expr env e1 and t2 = expr env e2 in
 	     (match op with
           Add | Sub | Mult | Div when t1 = DataType(Int) && t2 = DataType(Int)
                 -> DataType(Int)
@@ -134,60 +136,72 @@ let check (global_vdecls, functions) =
                                      string_of_typ t2 ^ " in " ^ string_of_expr e))
        )
     | Unop(op, e) as ex -> 
-       let t = expr e in
+       let t = expr env e in
 	     (match op with
 	        Neg when t = DataType(Int)  -> DataType(Int)
 	      | Not when t = DataType(Bool) -> DataType(Bool)
         | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
 	  		                         string_of_typ t ^ " in " ^ string_of_expr ex)))
     | Noexpr -> DataType(Void)
-    | Assign(var, e) as ex -> let lt = type_of_identifier var
-                              and rt = expr e in
+    | Assign(var, e) as ex -> let lt = type_of_identifier env var
+                              and rt = expr env e in
                               check_assign lt rt (Failure ("illegal assignment " ^ string_of_typ lt ^
 				                                                     " = " ^ string_of_typ rt ^ " in " ^ 
 				                                                       string_of_expr ex))
     | Call(fname, actuals) as call -> 
-       let ftype = type_of_identifier fname in
+       let ftype = type_of_identifier env fname in
        (match ftype with
           FuncType(tlist) ->
           let formals = List.tl tlist in
           let ret = List.hd tlist in
           if List.length actuals != List.length formals then
-            raise (Failure ("expecting " ^ string_of_int
-                                             (List.length formals) ^ " arguments in " ^ string_of_expr call))
+            raise (Failure ("expecting " ^ 
+                              string_of_int (List.length formals) ^ 
+                                " arguments in " ^ string_of_expr call))
           else
-            List.iter2 (fun ft e -> 
-                         let et = expr e in
-                         ignore (check_assign ft et
-                                              (Failure ("illegal actual argument found " ^ string_of_typ et ^ " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
-                       formals actuals;
+            List.iter2 
+              (fun ft e -> 
+                let et = expr env e in
+                ignore (check_assign ft et (Failure ("illegal actual argument found " ^ string_of_typ et ^ " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
+              formals actuals;
           ret
         | _ -> raise (Failure (fname ^ " is not a function"))
        )
   in
 
   (*** Checking Global Variables ***)
-  let check_bind t name = 
+  let add_bind env t name = 
     check_not_void (fun n -> "illegal void variable " ^ n) (t, name);
-    let scope_table = List.hd (!symbol_tables) in
-    if Hashtbl.mem scope_table name then
+    if StringMap.mem name env.locals then
       raise (Failure ("redefinition of " ^ name))
-    else Hashtbl.add scope_table name t in
+    else {
+        externals = env.externals;
+        locals = StringMap.add name t env.locals
+      }
+  in
 
-  let check_vdecl = function
-      Bind(t, name) -> check_bind t name
+  let add_vdecl env = function
+      Bind(t, name) -> add_bind env t name
     | Binass(t, name, e) -> 
-       check_bind t name;
-       let rtype = expr e in
+       let rtype = expr env e in
        ignore (check_assign t rtype 
                             (Failure ("illegal assignment " ^ string_of_typ t ^
 				                                " = " ^ string_of_typ rtype ^ " in " ^ 
-				                                  string_of_expr e)))
+				                                  string_of_expr e)));
+       add_bind env t name
   in
-  List.iter check_vdecl global_vdecls;
+
+  let global_env = List.fold_left 
+                     add_vdecl 
+                     { externals = StringMap.empty;
+                       locals = global_funcs } 
+                     global_vdecls in
+
+  let global_env = { externals = global_env.locals;
+                     locals=  StringMap.empty } in
 
   (*** Checking Function Contents ***)
-  let check_function func =
+  let check_function fenv func =
     List.iter (check_not_void (fun n -> "illegal void formal " ^ n ^
       " in " ^ func.fname)) func.formals;
 
@@ -195,45 +209,42 @@ let check (global_vdecls, functions) =
       (List.map snd func.formals);
 
     (* Local variables and formals *)
-    let local_vars = Hashtbl.create 10 in
-    List.iter (fun (t, name) -> 
-                Hashtbl.add local_vars name t) func.formals;
-    symbol_tables := local_vars :: (!symbol_tables);
+    let fenv = List.fold_left 
+                (fun e (t, name) -> add_bind e t name) fenv func.formals in
 
-    let check_bool_expr e = if expr e != DataType(Bool)
+    let check_bool_expr env e = if expr env e != DataType(Bool)
      then raise (Failure ("expected boolean expression in " ^ string_of_expr e))
      else () in
 
-    (* Verify a statement or throw an exception *)
-    let rec stmt = function
+    (* Verify a statement or throw an exception, returns updated environment *)
+    let rec stmt senv = function
 	      Block sl -> 
-        let rec check_block = function
-            [Return _ as s] -> stmt s
+        let check_block = function
+            [Return _ as s] -> stmt senv s
           | Return _ :: _ -> raise (Failure "nothing may follow a return")
-          | s :: ss ->
+          | (_ :: _) as slist ->
              (* New symbol table for new scope *)
-             let block_vars = Hashtbl.create 10 in
-             symbol_tables := block_vars :: (!symbol_tables);
-             stmt s;
-             check_block ss;
-             symbol_tables := List.tl (!symbol_tables)
-          | [] -> ()
+             ignore (List.fold_left stmt senv slist);
+             senv
+          | [] -> senv
         in check_block sl
-      | Expr e -> ignore (expr e)
-      | Return e -> let t = expr e in if typ_equal t func.typ then () else
+      | Expr e -> ignore (expr senv e); senv
+      | Return e -> let t = expr senv e in 
+                    if typ_equal t func.typ then senv else
          raise (Failure ("return gives " ^ string_of_typ t ^ " expected " ^
                          string_of_typ func.typ ^ " in " ^ string_of_expr e))
-           
-      | If(p, b1, b2) -> check_bool_expr p; stmt b1; stmt b2
-      | For(e1, e2, e3, st) -> ignore (expr e1); check_bool_expr e2;
-                               ignore (expr e3); stmt st
-      | While(p, s) -> check_bool_expr p; stmt s
-      | Typedef(t, s) -> Hashtbl.add user_types s (resolve_user_type t)
-      | Vdecl(vd) -> check_vdecl vd
+      | If(p, b1, b2) -> check_bool_expr senv p; 
+                         ignore (stmt senv b1);
+                         ignore (stmt senv b2);
+                         senv
+      | For(e1, e2, e3, st) -> ignore (expr senv e1); check_bool_expr senv e2;
+                               ignore (expr senv e3); ignore (stmt senv st);
+                               senv
+      | While(p, s) -> check_bool_expr senv p; ignore (stmt senv s); senv
+      | Typedef(t, s) -> Hashtbl.add user_types s (resolve_user_type t); senv
+      | Vdecl(vd) -> add_vdecl senv vd
     in
-
-    stmt (Block func.body);
-    symbol_tables := List.tl (!symbol_tables);
+    ignore (List.fold_left stmt fenv func.body)
 
   in
-  List.iter check_function functions
+  List.iter (check_function global_env) functions
