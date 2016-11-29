@@ -165,6 +165,7 @@ else
     files="tests/test-*.ha tests/fail-*.ha"
 fi
 
+make
 for file in $files
 do
     case $file in
