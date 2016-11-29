@@ -7,6 +7,6 @@ bool bar(int c) {
 }
 
 int main() {
-    foo(bar, 3);
+    printb(foo(bar, 3));
     return 0;
 }
