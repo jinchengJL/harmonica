@@ -36,8 +36,8 @@ program:
 
 decls:
    /* nothing */ { [], [] }
- | decls vdecl { ($2 :: fst $1), snd $1 }
- | decls fdecl { fst $1, ($2 :: snd $1) }
+ | decls global { ($2 :: fst $1), snd $1 }
+ | decls fdecl  { fst $1, ($2 :: snd $1) }
 
 fdecl:
    typ ID LPAREN formals_opt RPAREN LBRACE stmt_list RBRACE
@@ -81,6 +81,11 @@ vdecl:
     typ ID SEMI { Bind($1, $2) }
   | typ ID ASSIGN expr SEMI { Binass($1, $2, $4) }
 
+global:
+    STRUCT_STMT ID LBRACE bind_list RBRACE SEMI { Typedef(Struct($2, List.rev $4), $2) }
+  | TYPEDEF typ ID SEMI { Typedef($2, $3) }
+  | vdecl { Global($1) }
+
 bind_list:
     /* nothing */ { [] }
   | bind_list bind { $2 :: $1 }
@@ -102,9 +107,7 @@ stmt:
   | FOR LPAREN expr_opt SEMI expr SEMI expr_opt RPAREN stmt
      { For($3, $5, $7, $9) }
   | WHILE LPAREN expr RPAREN stmt { While($3, $5) }
-  | STRUCT_STMT ID LBRACE bind_list RBRACE SEMI { Typedef(Struct($2, List.rev $4), $2) }
-  | TYPEDEF typ ID SEMI { Typedef($2, $3) }
-  | vdecl { Vdecl($1) }
+  | vdecl { Local($1) }
 
 expr_opt:
     /* nothing */ { Noexpr }

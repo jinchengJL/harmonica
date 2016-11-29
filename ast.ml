@@ -34,6 +34,10 @@ type var_decl =
     Bind of typ * string
   | Binass of typ * string * expr
 
+type global_stmt =
+    Typedef of typ * string
+  | Global of var_decl
+
 type stmt =
     Block of stmt list
   | Expr of expr
@@ -41,8 +45,7 @@ type stmt =
   | If of expr * stmt * stmt
   | For of expr * expr * expr * stmt
   | While of expr * stmt
-  | Typedef of typ * string
-  | Vdecl of var_decl
+  | Local of var_decl
 
 type func_decl = {
     typ : typ;
@@ -51,7 +54,7 @@ type func_decl = {
     body : stmt list;
   }
 
-type program = var_decl list * func_decl list
+type program = global_stmt list * func_decl list
 
 (* Pretty-printing functions *)
 
@@ -111,6 +114,10 @@ let string_of_vdecl = function
     Bind(t, s) -> "Bind(" ^ string_of_typ t ^ ", " ^ s ^ ")\n"
   | Binass(t, s, e) -> "Binass(" ^ string_of_typ t ^ ", " ^ s ^ ", " ^ string_of_expr e ^ ")\n"
 
+let string_of_global_stmt = function
+    Typedef(t, s) -> "Typedef(" ^ string_of_typ t ^ ", " ^ s ^ ")\n"
+  | Global(vd) -> string_of_vdecl vd
+
 let rec string_of_stmt = function
     Block(stmts) ->
       "Block(\n" ^ String.concat "" (List.map string_of_stmt stmts) ^ ")\n"
@@ -123,8 +130,7 @@ let rec string_of_stmt = function
       "For(" ^ string_of_expr e1  ^ " ; " ^ string_of_expr e2 ^ " ; " ^
       string_of_expr e3  ^ ", " ^ string_of_stmt s ^ ")\n"
   | While(e, s) -> "While(" ^ string_of_expr e ^ ", " ^ string_of_stmt s ^ ")\n"
-  | Typedef(t, s) -> "Typedef(" ^ string_of_typ t ^ ", " ^ s ^ ")\n"
-  | Vdecl(vd) -> string_of_vdecl vd
+  | Local(vd) -> string_of_vdecl vd
 
 let string_of_fdecl fdecl =
   string_of_typ fdecl.typ ^ " " ^
@@ -133,6 +139,6 @@ let string_of_fdecl fdecl =
   String.concat "" (List.map string_of_stmt fdecl.body) ^
   "}\n"
 
-let string_of_program (vars, funcs) =
-  String.concat "" (List.map string_of_vdecl vars) ^ "\n" ^
+let string_of_program (gstmts, funcs) =
+  String.concat "" (List.map string_of_global_stmt gstmts) ^ "\n" ^
   String.concat "\n" (List.map string_of_fdecl funcs)

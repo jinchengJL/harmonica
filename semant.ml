@@ -12,7 +12,7 @@ type environment = {
 (* Semantic checking of a program. Returns void if successful,
    throws an exception if something is wrong. *)
                      
-let check (global_vdecls, functions) =
+let check (global_stmts, functions) =
   (* Raise an exception if the given list has a duplicate *)
   let report_duplicate exceptf list =
     let rec helper = function
@@ -29,10 +29,17 @@ let check (global_vdecls, functions) =
   in
 
   (* User-defined types *)
-  let user_types = Hashtbl.create 10 in
+  let user_types = List.fold_left
+    (fun map -> function
+        Typedef(t, s) -> StringMap.add s t map
+      | _ -> map)
+    StringMap.empty
+    global_stmts
+  in
+
   let rec resolve_user_type usert =
     (match usert with
-       UserType(s) -> (try resolve_user_type (Hashtbl.find user_types s)
+       UserType(s) -> (try resolve_user_type (StringMap.find s user_types)
                        with Not_found -> raise (Failure ("undefined type " ^ s)))
      | _ -> usert)
   in
@@ -191,14 +198,17 @@ let check (global_vdecls, functions) =
        add_bind env t name
   in
 
-  let global_env = List.fold_left 
-                     add_vdecl 
+  let global_env = List.fold_left
+                     (fun env -> function
+                         Global(vd) -> add_vdecl env vd
+                       | _ -> env)
                      { externals = StringMap.empty;
                        locals = global_funcs } 
-                     global_vdecls in
+                     global_stmts
+  in
 
   let global_env = { externals = global_env.locals;
-                     locals=  StringMap.empty } in
+                     locals = StringMap.empty } in
 
   (*** Checking Function Contents ***)
   let check_function fenv func =
@@ -241,8 +251,8 @@ let check (global_vdecls, functions) =
                                ignore (expr senv e3); ignore (stmt senv st);
                                senv
       | While(p, s) -> check_bool_expr senv p; ignore (stmt senv s); senv
-      | Typedef(t, s) -> Hashtbl.add user_types s (resolve_user_type t); senv
-      | Vdecl(vd) -> add_vdecl senv vd
+
+      | Local(vd) -> add_vdecl senv vd
     in
     ignore (List.fold_left stmt fenv func.body)
 
