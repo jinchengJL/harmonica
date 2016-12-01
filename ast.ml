@@ -17,7 +17,7 @@ type typ =
   | FuncType of typ list
 
 type expr =
-    Literal of int
+    IntLit of int
   | BoolLit of bool
   | StringLit of string
   | FloatLit of float
@@ -78,7 +78,7 @@ let string_of_uop = function
   | Not -> "Not"
 
 let rec string_of_expr = function
-    Literal(l) -> "Literal(" ^ string_of_int l ^ ")"
+    IntLit(l) -> "IntLit(" ^ string_of_int l ^ ")"
   | BoolLit(true) -> "BoolLit(True)"
   | BoolLit(false) -> "BoolLit(False)"
   | StringLit(s) -> "StringLit(\"" ^ s ^ "\")"

@@ -113,7 +113,7 @@ let check (global_stmts, functions) =
 
   (* Return the type of an expression or throw an exception *)
   let rec expr env = function
-	    Literal _ -> DataType(Int)
+	    IntLit _ -> DataType(Int)
     | BoolLit _ -> DataType(Bool)
     | StringLit _ -> DataType(String)
     | FloatLit _ -> DataType(Float)
