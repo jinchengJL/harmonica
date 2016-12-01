@@ -24,13 +24,15 @@ let translate (globals, functions) =
   and i8_t   = L.i8_type     context
   and i1_t   = L.i1_type     context
   and dbl_t  = L.double_type context
-  and void_t = L.void_type   context in
+  and void_t = L.void_type   context
+  and unknown_t = L.named_struct_type context "HarmonicaUnknownType"
+  in
 
   let ltype_of_typ = function
       A.DataType(A.Int) -> i32_t
     | A.DataType(A.Bool) -> i1_t
     | A.DataType(A.Float) -> dbl_t
-    | A.DataType(A.Void) -> void_t 
+    | A.DataType(A.Void) -> void_t
     | _ -> i32_t
   in
   
@@ -48,7 +50,7 @@ let translate (globals, functions) =
                    StringMap.empty
                    (List.fold_left
                       (fun acc -> function 
-                          Ast.Global(vd) -> (vdecl_to_bind vd) :: acc
+                          A.Global(vd) -> (vdecl_to_bind vd) :: acc
                         | _ -> acc)
                       []
                       globals) in
@@ -102,8 +104,16 @@ let translate (globals, functions) =
     (* Construct code for an expression; return its value *)
     let rec expr builder = function
 	      A.Literal i -> L.const_int i32_t i
-      | A.StringLit s -> L.build_global_stringptr s "" builder
       | A.BoolLit b -> L.const_int i1_t (if b then 1 else 0)
+      | A.StringLit s -> L.build_global_stringptr s "" builder
+      | A.FloatLit f -> L.const_float dbl_t f
+      | A.TupleLit elist -> L.const_struct context (Array.of_list (List.map (expr builder) elist))
+      | A.ListLit elist ->
+         begin match elist with
+           [] -> L.const_array unknown_t [||]
+         | hd :: _  -> L.const_array (L.type_of (expr builder hd))
+                                     (Array.of_list (List.map (expr builder) elist))
+         end
       | A.Noexpr -> L.const_int i32_t 0
       | A.Id s -> L.build_load (lookup s) s builder
       | A.Binop (e1, op, e2) ->
@@ -215,8 +225,17 @@ let translate (globals, functions) =
 	       ignore (L.build_cond_br bool_val body_bb merge_bb pred_builder);
 	       L.builder_at_end context merge_bb
 
-      | A.For (e1, e2, e3, body) -> stmt builder
-	    ( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ] )
+      | A.For (e1, e2, e3, body) ->
+         stmt builder
+	            ( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ] )
+
+      (* TODO: fill this out correctly, right now its just a placeholder *)
+      (* NOTE: this may require significant change to codegen structure, need to add env similar to semant *)
+      | A.Local (vd) ->
+         begin match vd with
+           A.Bind(_, _) -> builder
+         | A.Binass(_, _, _) -> builder
+         end
     in
 
     (* Build the code for each statement in the function *)
