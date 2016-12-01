@@ -9,7 +9,7 @@ open Ast
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR
 %token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID TUPLE LIST STRUCT_STMT TYPEDEF 
 %token CHANNEL PARALLEL CHAN LAMBDA 
-%token <int> LITERAL
+%token <int> INT_LITERAL
 %token <float> FLOAT_LITERAL
 %token <string> ID STRING_LITERAL
 %token EOF
@@ -155,7 +155,7 @@ expr:
   | LPAREN expr RPAREN { $2 }
 
 primitives:
-    LITERAL          { Literal($1) }
+    INT_LITERAL      { IntLit($1) }
   | TRUE             { BoolLit(true) }
   | FALSE            { BoolLit(false) }
   | FLOAT_LITERAL    { FloatLit($1) }
