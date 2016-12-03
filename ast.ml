@@ -1,7 +1,7 @@
 (* Abstract Syntax Tree and functions for printing it *)
 
 type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
-          And | Or | Member
+          And | Or 
 
 type uop = Neg | Not
 
@@ -16,6 +16,11 @@ type typ =
   | UserType of string
   | FuncType of typ list
 
+type id = 
+    NaiveId of string
+  | MemberId of id * string
+
+
 type expr =
     IntLit of int
   | BoolLit of bool
@@ -23,11 +28,11 @@ type expr =
   | FloatLit of float
   | TupleLit of expr list
   | ListLit of expr list
-  | Id of string
+  | Id of id
   | Binop of expr * op * expr
   | Unop of uop * expr
-  | Assign of string * expr
-  | Call of string * expr list
+  | Assign of id * expr
+  | Call of id * expr list
   | Noexpr
 
 type var_decl = 
@@ -71,11 +76,16 @@ let string_of_op = function
   | Geq -> "Geq"
   | And -> "And"
   | Or -> "Or"
-  | Member -> "Member"
+
 
 let string_of_uop = function
     Neg -> "Neg"
   | Not -> "Not"
+
+let rec string_of_id = function
+    NaiveId(s) -> s
+  | MemberId(id, s) -> "Member(" ^ string_of_id id ^ ", " ^ s ^ ")"
+
 
 let rec string_of_expr = function
     IntLit(l) -> "IntLit(" ^ string_of_int l ^ ")"
@@ -85,14 +95,15 @@ let rec string_of_expr = function
   | FloatLit(f) -> "FloatLit(" ^ string_of_float f ^ ")"
   | TupleLit(elist) -> "TupleLit(" ^ String.concat ", " (List.map string_of_expr elist) ^ ")"
   | ListLit(elist) -> "ListLit(" ^ String.concat ", " (List.map string_of_expr elist) ^ ")"
-  | Id(s) -> "Id(" ^ s ^ ")"
+  | Id(s) -> "Id(" ^ string_of_id s ^ ")"
   | Binop(e1, o, e2) ->
       "Binop(" ^ string_of_expr e1 ^ ", " ^ string_of_op o ^ ", " ^ string_of_expr e2 ^ ")"
   | Unop(o, e) -> "Unop(" ^ string_of_uop o ^ ", " ^ string_of_expr e ^ ")"
-  | Assign(v, e) -> "Assign(" ^ v ^ ", " ^ string_of_expr e ^ ")"
+  | Assign(v, e) -> "Assign(" ^ string_of_id v ^ ", " ^ string_of_expr e ^ ")"
   | Call(f, el) ->
-     "Call(" ^ f ^ ", " ^ String.concat ", " (List.map string_of_expr el) ^ ")"
+     "Call(" ^ string_of_id f ^ ", " ^ String.concat ", " (List.map string_of_expr el) ^ ")"
   | Noexpr -> "Noexpr"
+
 
 let rec string_of_typ = function
     DataType(Int) -> "Int"

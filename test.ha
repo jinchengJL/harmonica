@@ -29,7 +29,8 @@ int main() {
   parallel(f, l, 0, 2, c);
 
   c.data;
-  c.func(c).pop();
+  pig some_struct = c.func(c);
+  some_struct.pop();
 
   f = 1.23;
 
