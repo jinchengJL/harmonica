@@ -130,9 +130,14 @@ expr_comma_list:
     expr COMMA expr { $3 :: [$1] }
   | expr_comma_list COMMA expr { $3 :: $1 }
 
+id_expr:
+    ID                 { NaiveId($1) }
+  | id_expr  DOT  ID   { MemberId($1, $3) }
+
+
 expr:
     literals          { $1 }
-  | ID               { Id($1) }
+  | id_expr               { Id($1) }
   | expr PLUS   expr { Binop($1, Add,   $3) }
   | expr MINUS  expr { Binop($1, Sub,   $3) }
   | expr TIMES  expr { Binop($1, Mult,  $3) }
@@ -145,13 +150,12 @@ expr:
   | expr GEQ    expr { Binop($1, Geq,   $3) }
   | expr AND    expr { Binop($1, And,   $3) }
   | expr OR     expr { Binop($1, Or,    $3) }
-  | expr DOT    expr { Binop($1, Member, $3) }
   | MINUS expr %prec NEG { Unop(Neg, $2) }
   | NOT expr         { Unop(Not, $2) }
-  | ID ASSIGN expr   { Assign($1, $3) }
-  | ID LPAREN actuals_opt RPAREN { Call($1, $3) }
-  | PARALLEL LPAREN actuals_opt RPAREN { Call("parallel", $3) }
-  | CHAN LPAREN chan_actuals_opt RPAREN { Call("chan", $3) }
+  | id_expr ASSIGN expr   { Assign($1, $3) }
+  | id_expr LPAREN actuals_opt RPAREN { Call($1, $3) }
+  | PARALLEL LPAREN actuals_opt RPAREN { Call(NaiveId("parallel"), $3) }
+  | CHAN LPAREN chan_actuals_opt RPAREN { Call(NaiveId("chan"), $3) }
   | LPAREN expr RPAREN { $2 }
 
 primitives:
