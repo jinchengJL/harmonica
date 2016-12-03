@@ -104,11 +104,18 @@ let check (global_stmts, functions) =
           with Not_found -> raise (Failure ("main function undefined")));
 
   (* NOTE: inner-scope variable overrides outer-scope variable with same name *)
-  let type_of_identifier env s =
-    try StringMap.find s (env.locals)
-    with Not_found -> (
-      try StringMap.find s (env.externals)
-      with Not_found -> raise (Failure ("undeclared identifier " ^ s)))
+  let rec type_of_identifier env = function
+      NaiveId(s) -> 
+      (try StringMap.find s (env.locals)
+       with Not_found -> (
+         try StringMap.find s (env.externals)
+         with Not_found -> raise (Failure ("undeclared identifier " ^ s))))
+    | MemberId(id, n) -> 
+       let container_type = resolve_user_type (type_of_identifier env id) in
+       (match container_type with
+          Struct(_, blist) -> 
+          let (t, _) = List.find (fun (_, n') -> n' = n) blist in t
+        | _ -> raise (Failure (string_of_id id  ^ " is not a struct type")))
   in
 
   (* Return the type of an expression or throw an exception *)
@@ -172,7 +179,7 @@ let check (global_stmts, functions) =
                 ignore (check_assign ft et (Failure ("illegal actual argument found " ^ string_of_typ et ^ " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
               formals actuals;
           ret
-        | _ -> raise (Failure (fname ^ " is not a function"))
+        | _ -> raise (Failure (string_of_id fname ^ " is not a function"))
        )
   in
 

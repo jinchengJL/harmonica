@@ -20,7 +20,6 @@ type id =
     NaiveId of string
   | MemberId of id * string
 
-
 type expr =
     IntLit of int
   | BoolLit of bool

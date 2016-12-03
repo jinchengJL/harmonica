@@ -97,8 +97,12 @@ let translate (globals, functions) =
       (* List.fold_left add_local formals fdecl.A.locals in *)
 
     (* Return the value for a variable or formal argument *)
-    let lookup n = try StringMap.find n local_vars
-                   with Not_found -> StringMap.find n global_vars
+    let rec lookup = function
+        A.NaiveId(n) -> (try StringMap.find n local_vars
+                         with Not_found -> StringMap.find n global_vars)
+      | A.MemberId(id, _) -> 
+         (* TODO: build_struct_gep *)
+         lookup id
     in
 
     (* Construct code for an expression; return its value *)
@@ -115,7 +119,7 @@ let translate (globals, functions) =
                                      (Array.of_list (List.map (expr builder) elist))
          end
       | A.Noexpr -> L.const_int i32_t 0
-      | A.Id s -> L.build_load (lookup s) s builder
+      | A.Id id -> L.build_load (lookup id) "identifier" builder
       | A.Binop (e1, op, e2) ->
 	       let e1' = expr builder e1
 	       and e2' = expr builder e2 in
@@ -132,7 +136,6 @@ let translate (globals, functions) =
 	        | A.Leq     -> L.build_icmp L.Icmp.Sle
 	        | A.Greater -> L.build_icmp L.Icmp.Sgt
 	        | A.Geq     -> L.build_icmp L.Icmp.Sge
-          | A.Member  -> (*TODO: I don't think member access should be an operator.*) L.build_add
 	       ) e1' e2' "tmp" builder
       | A.Unop(op, e) ->
 	       let e' = expr builder e in
@@ -154,29 +157,28 @@ let translate (globals, functions) =
           
           | _ -> print_endline ";_ print called"; L.build_call printf_func [| int_format_str ; (expr builder e) |] "abcd" builder
          )*)
-      | A.Call ("printi", [e]) -> 
+      | A.Call (A.NaiveId("printi"), [e]) -> 
         L.build_call printf_func [| int_format_str ; (expr builder e) |]
 	    "printf" builder
-      | A.Call ("printb", [e]) ->
+      | A.Call (A.NaiveId("printb"), [e]) ->
 	      L.build_call printf_func [| int_format_str ; (expr builder e) |]
 	    "printf" builder
 
-      | A.Call ("print", [e]) -> let get_string = function A.StringLit s -> s | _ -> "" in
+      | A.Call (A.NaiveId("print"), [e]) -> let get_string = function A.StringLit s -> s | _ -> "" in
         let s_ptr = L.build_global_stringptr ((get_string e) ^ "\n") ".str" builder in
         L.build_call printf_func [| s_ptr |] "printf" builder
 
-      | A.Call ("printf", [e]) ->
+      | A.Call (A.NaiveId("printf"), [e]) ->
         L.build_call printf_func [| float_format_str ; (expr builder e) |]
         "printf" builder
 
 
       | A.Call (f, act) ->
-          let (fdef, fdecl) = StringMap.find f function_decls in
-          let actuals = List.rev (List.map (expr builder) (List.rev act)) in
-          let result = (match fdecl.A.typ with 
-             A.DataType(A.Void) -> ""
-            | _ -> f ^ "_result") in
-          L.build_call fdef (Array.of_list actuals) result builder
+         let fdef = lookup f in
+         (* let (fdef, fdecl) = StringMap.find f function_decls in *)
+         let actuals = List.rev (List.map (expr builder) (List.rev act)) in
+         let result = A.string_of_id f ^ "_result" in
+         L.build_call fdef (Array.of_list actuals) result builder
     in
 
     (* Invoke "f builder" if the current block doesn't already
