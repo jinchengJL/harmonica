@@ -11,8 +11,24 @@ type environment = {
 
 (* Semantic checking of a program. Returns void if successful,
    throws an exception if something is wrong. *)
-                     
+
+let rec resolve_user_type usert utypes =
+  (match usert with
+     UserType(s) -> (try resolve_user_type (StringMap.find s utypes) utypes
+                     with Not_found -> raise (Failure ("undefined type " ^ s)))
+   | _ -> usert)
+    
 let check (global_stmts, functions) =
+
+  (* User-defined types *)
+  let user_types = List.fold_left
+                     (fun map -> function
+                         Typedef(t, s) -> StringMap.add s t map
+                       | _ -> map)
+                     StringMap.empty
+                     global_stmts
+  in
+
   (* Raise an exception if the given list has a duplicate *)
   let report_duplicate exceptf list =
     let rec helper = function
@@ -28,21 +44,6 @@ let check (global_stmts, functions) =
     | _ -> ()
   in
 
-  (* User-defined types *)
-  let user_types = List.fold_left
-    (fun map -> function
-        Typedef(t, s) -> StringMap.add s t map
-      | _ -> map)
-    StringMap.empty
-    global_stmts
-  in
-
-  let rec resolve_user_type usert =
-    (match usert with
-       UserType(s) -> (try resolve_user_type (StringMap.find s user_types)
-                       with Not_found -> raise (Failure ("undefined type " ^ s)))
-     | _ -> usert)
-  in
 
   (* Structural type equality *)
   let rec typ_equal t1 t2 = 
@@ -56,7 +57,7 @@ let check (global_stmts, functions) =
      | (Channel(t1'), Channel(t2')) -> typ_equal t1' t2'
      | (Struct(name1, _), Struct(name2, _)) -> name1 = name2 (* TODO: ok? *)
      | (UserType(_), UserType(_)) -> 
-        typ_equal (resolve_user_type t1) (resolve_user_type t2)
+        typ_equal (resolve_user_type t1 user_types) (resolve_user_type t2 user_types)
      | (FuncType(tlist1), FuncType(tlist2)) -> 
         List.for_all2 typ_equal tlist1 tlist2
      | _ -> false
@@ -111,7 +112,7 @@ let check (global_stmts, functions) =
          try StringMap.find s (env.externals)
          with Not_found -> raise (Failure ("undeclared identifier " ^ s))))
     | MemberId(id, n) -> 
-       let container_type = resolve_user_type (type_of_identifier env id) in
+       let container_type = resolve_user_type (type_of_identifier env id) user_types in
        (match container_type with
           Struct(_, blist) -> 
           let (t, _) = List.find (fun (_, n') -> n' = n) blist in t

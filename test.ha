@@ -14,6 +14,9 @@ int main() {
   string s;
   list[int] l;
   list[list[list[string]]] sss;
+
+  person p;
+  p.age = 3;
     
   if (2>1) {
     print(1);
