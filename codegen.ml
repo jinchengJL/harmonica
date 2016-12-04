@@ -14,10 +14,16 @@ http://llvm.moe/ocaml/
 
 module L = Llvm
 module A = Ast
+module S = Semant
 
 module StringMap = Map.Make(String)
 
-let translate (globals, functions) =
+type environment = {
+    externals: L.llvalue StringMap.t;
+    locals: L.llvalue StringMap.t;
+  }
+
+let translate (global_stmts, functions) =
   let context = L.global_context () in
   let the_module = L.create_module context "Harmonica"
   and i32_t  = L.i32_type    context
@@ -26,15 +32,67 @@ let translate (globals, functions) =
   and dbl_t  = L.double_type context
   and void_t = L.void_type   context
   and unknown_t = L.named_struct_type context "HarmonicaUnknownType"
+  and string_t = L.pointer_type (L.i8_type context)
   in
 
-  let ltype_of_typ = function
+  (* user-defined types *)
+  let user_types = List.fold_left
+                     (fun map -> function
+                         A.Typedef(t, s) -> StringMap.add s t map
+                       | _ -> map)
+                     StringMap.empty
+                     global_stmts
+  in
+
+  (* map of struct names to their fields *)
+  let struct_map = List.fold_left
+                     (fun map -> function
+                         A.Typedef(A.Struct(name, bind_list), _) ->
+                         StringMap.add name bind_list map
+                       | _ -> map)
+                     StringMap.empty
+                     global_stmts
+  in
+
+  let rec ltype_of_typ = function
       A.DataType(A.Int) -> i32_t
     | A.DataType(A.Bool) -> i1_t
     | A.DataType(A.Float) -> dbl_t
     | A.DataType(A.Void) -> void_t
-    | _ -> i32_t
+    | A.DataType(A.String) -> string_t
+    | A.Tuple(tlist) -> L.struct_type context (Array.of_list (List.map ltype_of_typ tlist))
+    (* TODO: implement dynamic arrays *)
+    | A.List(t) -> L.array_type (ltype_of_typ t) 256
+    (* TODO: channels *)
+    | A.Struct(name, _) -> L.named_struct_type context name
+    | A.UserType(_) as t -> let t' = S.resolve_user_type t user_types in
+                            ltype_of_typ t'
+    | A.FuncType(tlist) ->
+       let reversed = List.map ltype_of_typ (List.rev tlist) in
+       let return_t = List.hd reversed in
+       let params_t = Array.of_list (List.rev (List.tl reversed)) in
+       L.function_type return_t params_t
+    | _ -> raise (Failure "Not yet implemented")
   in
+
+  (* let rec typ_of_ltype ltype = match (L.classify_type ltype) with *)
+  (*     L.TypeKind.Integer -> if ltype = i1_t *)
+  (*                           then A.DataType(A.Bool)  *)
+  (*                           else A.DataType(A.Int) *)
+  (*   | L.TypeKind.Double -> A.DataType(A.Float) *)
+  (*   | L.TypeKind.Void -> A.DataType(A.Void) *)
+  (*   | L.TypeKind.Pointer -> A.DataType(A.String) *)
+  (*   | L.TypeKind.Array -> A.List (typ_of_ltype (L.element_type ltype)) *)
+  (*   | L.TypeKind.Struct ->  *)
+  (*      (match (L.struct_name ltype) with *)
+  (*         None -> A.Tuple (List.map typ_of_ltype (Array.to_list (L.struct_element_types ltype))) *)
+  (*       | Some(name) -> A.Struct (name, StringMap.find name struct_map)) *)
+  (*   | L.TypeKind.Function -> *)
+  (*      let return_t = L.return_type ltype in *)
+  (*      let param_ts = Array.to_list (L.param_types ltype) in *)
+  (*      A.FuncType (List.map typ_of_ltype (List.rev (return_t :: (List.rev param_ts)))) *)
+  (*   | _ -> raise (Failure "Unsupported llvm type") *)
+  (* in *)
   
   let vdecl_to_bind = function
       A.Bind(t, n) -> (t, n)
@@ -53,7 +111,7 @@ let translate (globals, functions) =
                           A.Global(vd) -> (vdecl_to_bind vd) :: acc
                         | _ -> acc)
                       []
-                      globals) in
+                      global_stmts) in
 
   (* Declare printf(), which the print built-in function will call *)
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
@@ -98,11 +156,24 @@ let translate (globals, functions) =
 
     (* Return the value for a variable or formal argument *)
     let rec lookup = function
-        A.NaiveId(n) -> (try StringMap.find n local_vars
+        A.NaiveId(n) -> print_string n;
+                        (try StringMap.find n local_vars
                          with Not_found -> StringMap.find n global_vars)
-      | A.MemberId(id, _) -> 
-         (* TODO: build_struct_gep *)
-         lookup id
+      | A.MemberId(id, field_name) -> 
+         let rec find_index_of pred list = 
+           match list with
+             [] -> raise (Failure "Not Found")
+           | hd :: tl -> if pred hd then 0 else 1 + find_index_of pred tl
+         in
+         let container = lookup id in
+         let container_tname_opt = L.struct_name (L.type_of container) in
+         (match container_tname_opt with
+            None -> raise (Failure ("expected struct, found tuple: " ^ A.string_of_id id))
+          | Some(container_tname) ->
+             let fields = StringMap.find container_tname struct_map in
+             let idx = find_index_of (fun b -> field_name = snd b) fields in
+             let addr = L.build_struct_gep container idx "" builder in
+             L.build_load addr "" builder)
     in
 
     (* Construct code for an expression; return its value *)
