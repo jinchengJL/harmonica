@@ -64,7 +64,10 @@ let translate (global_stmts, functions) =
     (* TODO: implement dynamic arrays *)
     | A.List(t) -> L.array_type (ltype_of_typ t) 256
     (* TODO: channels *)
-    | A.Struct(name, _) -> L.named_struct_type context name
+    | A.Struct(name, blist) -> 
+       let struct_t = L.named_struct_type context name in
+       L.struct_set_body struct_t (Array.of_list (List.map ltype_of_typ (List.map fst blist))) false;
+       struct_t
     | A.UserType(_) as t -> let t' = S.resolve_user_type t user_types in
                             ltype_of_typ t'
     | A.FuncType(tlist) ->
@@ -146,25 +149,32 @@ let translate (global_stmts, functions) =
 
     (*   (\* List.fold_left add_local formals fdecl.A.locals in *\) *)
 
-    (* Return the value for a variable or formal argument *)
-    let rec lookup env = function
-        A.NaiveId(n) -> (try StringMap.find n env.locals
-                         with Not_found -> StringMap.find n env.externals)
+    (* Return the address of a variable or formal argument *)
+    let rec lookup env x = 
+      (* prerr_endline ("looking up " ^ A.string_of_id x); *)
+      begin match x with
+        A.NaiveId(n) -> 
+        (try StringMap.find n env.locals
+         with Not_found -> StringMap.find n env.externals)
       | A.MemberId(id, field_name) -> 
          let rec find_index_of pred list = 
            match list with
              [] -> raise (Failure "Not Found")
            | hd :: tl -> if pred hd then 0 else 1 + find_index_of pred tl
          in
-         let container = lookup env id in
+         let container_addr = lookup env id in
+         let container = L.build_load container_addr "" builder in
          let container_tname_opt = L.struct_name (L.type_of container) in
          (match container_tname_opt with
             None -> raise (Failure ("expected struct, found tuple: " ^ A.string_of_id id))
           | Some(container_tname) ->
              let fields = StringMap.find container_tname struct_map in
              let idx = find_index_of (fun b -> field_name = snd b) fields in
-             let addr = L.build_struct_gep container idx "" builder in
-             L.build_load addr "" builder)
+             let addr = L.build_struct_gep container_addr idx "" builder in
+             addr)
+      (* L.build_load addr ("load_" ^ A.string_of_id x) builder) *)
+      end
+
     in
 
     (* Construct code for an expression; return its value *)
@@ -192,7 +202,8 @@ let translate (global_stmts, functions) =
            (env, L.const_array (L.type_of (List.hd elements))
                                (Array.of_list elements))
       | A.Noexpr -> (env, L.const_int i32_t 0)
-      | A.Id id -> (env, L.build_load (lookup env id) "identifier" env.builder)
+      | A.Id id -> 
+         (env, L.build_load (lookup env id) "identifier" env.builder)
       | A.Binop (e1, op, e2) ->
 	       let (env, e1') = expr env e1 in
 	       let (env, e2') = expr env e2 in
@@ -271,7 +282,7 @@ let translate (global_stmts, functions) =
        the statement's successor *)
     let rec stmt env = function
 	      A.Block sl -> List.fold_left stmt env sl
-      | A.Expr e -> let (env, _) = expr env e in env
+      | A.Expr e -> fst (expr env e)
       | A.Return e ->
          let (env, v) = expr env e in
          ignore (match fdecl.A.typ with
@@ -311,8 +322,6 @@ let translate (global_stmts, functions) =
       | A.For (e1, e2, e3, body) ->
          stmt env ( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ] )
 
-      (* TODO: fill this out correctly, right now its just a placeholder *)
-      (* NOTE: this may require significant change to codegen structure, need to add env similar to semant *)
       | A.Local (vd) ->
          begin match vd with
            A.Bind(t, id) -> 
