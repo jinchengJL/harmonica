@@ -315,8 +315,15 @@ let translate (global_stmts, functions) =
       (* NOTE: this may require significant change to codegen structure, need to add env similar to semant *)
       | A.Local (vd) ->
          begin match vd with
-           A.Bind(_, _) -> env
-         | A.Binass(_, _, _) -> env
+           A.Bind(t, id) -> 
+            let local_var = L.build_alloca (ltype_of_typ t) id builder in
+            {env with locals = StringMap.add id local_var env.locals} 
+         | A.Binass(t, id, e) -> 
+            let local_var = L.build_alloca (ltype_of_typ t) id builder in
+            let (env, e') = expr env e in
+            let env' = {env with locals = StringMap.add id local_var env.locals} in
+            ignore (L.build_store e' (lookup env' (A.NaiveId id)) env.builder); 
+            env'
          end
     in
 
