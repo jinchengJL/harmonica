@@ -19,8 +19,9 @@ type typ =
 type id = 
     NaiveId of string
   | MemberId of id * string
+  | IndexId of id * expr
 
-type expr =
+and expr =
     IntLit of int
   | BoolLit of bool
   | StringLit of string
@@ -81,12 +82,13 @@ let string_of_uop = function
     Neg -> "Neg"
   | Not -> "Not"
 
+
 let rec string_of_id = function
     NaiveId(s) -> s
   | MemberId(id, s) -> "Member(" ^ string_of_id id ^ ", " ^ s ^ ")"
+  | IndexId(id, e) -> "Index(" ^ string_of_id id ^ ", " ^ string_of_expr e ^ ")"
 
-
-let rec string_of_expr = function
+and string_of_expr = function
     IntLit(l) -> "IntLit(" ^ string_of_int l ^ ")"
   | BoolLit(true) -> "BoolLit(True)"
   | BoolLit(false) -> "BoolLit(False)"

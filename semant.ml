@@ -117,10 +117,16 @@ let check (global_stmts, functions) =
           Struct(_, blist) -> 
           let (t, _) = List.find (fun (_, n') -> n' = n) blist in t
         | _ -> raise (Failure (string_of_id id  ^ " is not a struct type")))
-  in
+    | IndexId(id, e) ->
+        let container_type = resolve_user_type (type_of_identifier env id) user_types in
+      (match container_type with
+            List(t) -> (match expr env e with DataType(Int) -> t | _ -> raise (Failure "WTF. Must be int.")) 
+          | _ -> raise (Failure "WTF. Must be list.")
+      ) 
+  and 
 
   (* Return the type of an expression or throw an exception *)
-  let rec expr env = function
+  expr env = function
 	    IntLit _ -> DataType(Int)
     | BoolLit _ -> DataType(Bool)
     | StringLit _ -> DataType(String)
