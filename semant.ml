@@ -241,8 +241,19 @@ let check (global_stmts, functions) =
             [Return _ as s] -> stmt senv s
           | Return _ :: _ -> raise (Failure "nothing may follow a return")
           | (_ :: _) as slist ->
-             (* New symbol table for new scope *)
-             ignore (List.fold_left stmt senv slist);
+             (*senv.locals -> senv.externals*)
+
+            let nenv = {locals = StringMap.empty; 
+               externals = StringMap.merge (fun _ xo yo -> match xo,yo with
+                | Some x, Some _ -> Some x 
+                | None, yo -> yo
+                | xo, None -> xo ) senv.locals senv.externals } 
+            in
+
+            (* New symbol table for new scope *)
+            ignore (List.fold_left stmt nenv slist);
+            
+
              senv
           | [] -> senv
         in check_block sl
