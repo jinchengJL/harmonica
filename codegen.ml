@@ -155,21 +155,26 @@ let translate (global_stmts, functions) =
       begin match x with
         A.NaiveId(n) -> 
         (try StringMap.find n env.locals
-         with Not_found -> StringMap.find n env.externals)
+         with Not_found -> 
+           (try StringMap.find n env.externals
+            with Not_found -> raise (Failure ("undeclared variable " ^ n))))
       | A.MemberId(id, field_name) -> 
-         let rec find_index_of pred list = 
+         let rec find_index_of field_name list = 
            match list with
-             [] -> raise (Failure "Not Found")
-           | hd :: tl -> if pred hd then 0 else 1 + find_index_of pred tl
+             [] -> raise (Failure ("undeclared field " ^ field_name))
+           | hd :: tl -> if field_name = (snd hd) 
+                         then 0 
+                         else 1 + find_index_of field_name tl
          in
          let container_addr = lookup env id in
          let container = L.build_load container_addr "" builder in
+         prerr_endline (L.string_of_llvalue container);
          let container_tname_opt = L.struct_name (L.type_of container) in
          (match container_tname_opt with
             None -> raise (Failure ("expected struct, found tuple: " ^ A.string_of_id id))
           | Some(container_tname) ->
              let fields = StringMap.find container_tname struct_map in
-             let idx = find_index_of (fun b -> field_name = snd b) fields in
+             let idx = find_index_of field_name fields in
              let addr = L.build_struct_gep container_addr idx "" builder in
              addr)
       (* L.build_load addr ("load_" ^ A.string_of_id x) builder) *)
@@ -281,7 +286,11 @@ let translate (global_stmts, functions) =
     (* Build the code for the given statement; return the builder for
        the statement's successor *)
     let rec stmt env = function
-	      A.Block sl -> List.fold_left stmt env sl
+	      A.Block sl -> 
+        (*local -> global; local.clr() *)
+        
+        
+        List.fold_left stmt env sl
       | A.Expr e -> fst (expr env e)
       | A.Return e ->
          let (env, v) = expr env e in
