@@ -16,9 +16,15 @@ type typ =
   | UserType of string
   | FuncType of typ list
 
+
+type index =
+    Num of int
+  | Variable of string
+
 type id = 
     NaiveId of string
   | MemberId of id * string
+  | IndexId of id * index
 
 type expr =
     IntLit of int
@@ -30,9 +36,11 @@ type expr =
   | Id of id
   | Binop of expr * op * expr
   | Unop of uop * expr
+  | Noexpr
+  (* different types of expr *)
   | Assign of id * expr
   | Call of id * expr list
-  | Noexpr
+
 
 type var_decl = 
     Bind of typ * string
@@ -81,9 +89,14 @@ let string_of_uop = function
     Neg -> "Neg"
   | Not -> "Not"
 
+let string_of_index = function
+    Num(i) -> string_of_int i
+  | Variable(s) -> s
+
 let rec string_of_id = function
     NaiveId(s) -> s
   | MemberId(id, s) -> "Member(" ^ string_of_id id ^ ", " ^ s ^ ")"
+  | IndexId(id, s) -> "Index(" ^ string_of_id id ^ ", " ^ string_of_index s ^ ")"
 
 
 let rec string_of_expr = function

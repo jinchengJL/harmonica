@@ -130,9 +130,14 @@ expr_comma_list:
     expr COMMA expr { $3 :: [$1] }
   | expr_comma_list COMMA expr { $3 :: $1 }
 
+index_expr:
+    INT_LITERAL        { Num($1) }
+  | ID                 { Variable($1) }
+
 id_expr:
     ID                 { NaiveId($1) }
   | id_expr  DOT  ID   { MemberId($1, $3) }
+  | id_expr LBRACKET index_expr RBRACKET {  IndexId($1, $3) }
 
 
 expr:
