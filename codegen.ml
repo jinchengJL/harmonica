@@ -54,6 +54,8 @@ let translate (global_stmts, functions) =
                      global_stmts
   in
 
+  let typ_cache = ref StringMap.empty in
+
   let rec ltype_of_typ = function
       A.DataType(A.Int) -> i32_t
     | A.DataType(A.Bool) -> i1_t
@@ -64,10 +66,14 @@ let translate (global_stmts, functions) =
     (* TODO: implement dynamic arrays *)
     | A.List(t) -> L.array_type (ltype_of_typ t) 256
     (* TODO: channels *)
-    | A.Struct(name, blist) -> 
+    | A.Struct(name, blist) ->
+      (try StringMap.find name !typ_cache
+       with Not_found -> 
        let struct_t = L.named_struct_type context name in
        L.struct_set_body struct_t (Array.of_list (List.map ltype_of_typ (List.map fst blist))) false;
-       struct_t
+       typ_cache := StringMap.add name struct_t !typ_cache;
+       struct_t)
+
     | A.UserType(_) as t -> let t' = S.resolve_user_type t user_types in
                             ltype_of_typ t'
     | A.FuncType(tlist) ->
@@ -163,7 +169,7 @@ let translate (global_stmts, functions) =
            | hd :: tl -> if pred hd then 0 else 1 + find_index_of pred tl
          in
          let container_addr = lookup env id in
-         let container = L.build_load container_addr "" builder in
+         let container = L.build_load container_addr "" builder in 
          let container_tname_opt = L.struct_name (L.type_of container) in
          (match container_tname_opt with
             None -> raise (Failure ("expected struct, found tuple: " ^ A.string_of_id id))
