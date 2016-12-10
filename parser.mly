@@ -133,6 +133,7 @@ expr_comma_list:
 id_expr:
     ID                 { NaiveId($1) }
   | id_expr  DOT  ID   { MemberId($1, $3) }
+  | id_expr  LBRACKET expr RBRACKET { IndexId($1, $3) }
 
 
 expr:
