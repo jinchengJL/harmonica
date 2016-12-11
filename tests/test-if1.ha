@@ -1,12 +1,17 @@
+# list[int] j = [5];
+
+
+
 int main(){
+	int i = 0;
 
-# int a = 3;
-# printi(a);
+	if (i == 0){
+		printi(7);
+	} else {
+		printi(8);
+	}
 
-list[int] j = [37, 23, 12];
-
-printi(j[0]);
-printi(j[1]);
-printi(j[2]);
-
+	# FAILED;
+	int b;
+	printi(9);
 }
