@@ -103,24 +103,7 @@ let translate (global_stmts, functions) =
   (*   | _ -> raise (Failure "Unsupported llvm type") *)
   (* in *)
   
-  let vdecl_to_bind = function
-      A.Bind(t, n) -> (t, n)
-    | A.Binass(t, n, _) -> (t, n)
-  in  
 
-  (* Declare each global variable; remember its value in a map *)
-  let global_vars =
-    let global_var m (t, n) =
-      let init = L.const_int (ltype_of_typ t) 0
-      in StringMap.add n (L.define_global n init the_module) m in
-    List.fold_left global_var 
-                   StringMap.empty
-                   (List.fold_left
-                      (fun acc -> function 
-                          A.Global(vd) -> (vdecl_to_bind vd) :: acc
-                        | _ -> acc)
-                      []
-                      global_stmts) in
 
   (* Declare printf(), which the print built-in function will call *)
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
@@ -136,166 +119,195 @@ let translate (global_stmts, functions) =
       let ftype = L.function_type (ltype_of_typ fdecl.A.typ) formal_types in
       StringMap.add name (L.define_function name ftype the_module, fdecl) m in
     List.fold_left function_decl StringMap.empty functions in
-  
+
+
+  let (main_function, _) = StringMap.find "main" function_decls in
+  (*let block_before_main = L.insert_block context "__global__" (L.entry_block main_function) in*)
+  let global_builder = L.builder_at_end context (L.entry_block main_function) in
+
+  let int_format_str = L.build_global_stringptr "%d\n" "fmt" global_builder in
+  let float_format_str = L.build_global_stringptr "%f\n" "fmt" global_builder in
+
+  (* Return the address of a variable or formal argument *)
+  let rec lookup env x = 
+    (* prerr_endline ("looking up " ^ A.string_of_id x); *)
+    begin match x with
+      A.NaiveId(n) -> 
+      (try StringMap.find n env.locals
+        with Not_found -> 
+          (try StringMap.find n env.externals
+          with Not_found -> raise (Failure ("undeclared variable " ^ n))))
+    | A.MemberId(id, field_name) -> 
+        let rec find_index_of field_name list = 
+          match list with
+            [] -> raise (Failure ("undeclared field " ^ field_name))
+          | hd :: tl -> if field_name = (snd hd) 
+                        then 0 
+                        else 1 + find_index_of field_name tl
+        in
+        let container_addr = lookup env id in
+        let container = L.build_load container_addr "" env.builder in 
+        let container_tname_opt = L.struct_name (L.type_of container) in
+        (match container_tname_opt with
+          None -> raise (Failure ("expected struct, found tuple: " ^ A.string_of_id id))
+        | Some(container_tname) ->
+            let fields = StringMap.find container_tname struct_map in
+            let idx = find_index_of field_name fields in
+            let addr = L.build_struct_gep container_addr idx "" env.builder in
+            addr)
+    | A.IndexId(id, e) ->
+        let container_addr = lookup env id in
+        let container = L.build_load container_addr "" env.builder in
+        let index = snd (expr env e) in 
+        let addr = L.build_gep container_addr [| index |] "tmp" env.builder in
+        let oink = L.build_pointercast addr (L.pointer_type (L.element_type (L.type_of container))) "" env.builder in
+        oink
+    end
+
+  (* Construct code for an expression; return its value *)
+    and expr env = 
+    let evaluate_exprs env exprs = List.fold_left 
+                                      (fun (env, values) e ->
+                                        let (env', v) = expr env e in
+                                        (env', v :: values))
+                                      (env, [])
+                                      exprs
+    in
+    function
+      A.IntLit i -> (env, L.const_int i32_t i)
+    | A.BoolLit b -> (env, L.const_int i1_t (if b then 1 else 0))
+    | A.StringLit s -> (env, L.build_global_stringptr s "" env.builder)
+    | A.FloatLit f -> (env, L.const_float dbl_t f)
+    | A.TupleLit elist -> 
+        let (env, elements) = evaluate_exprs env elist in
+        (env, L.const_struct context (Array.of_list elements))
+    | A.ListLit elist ->
+        if List.length elist == 0 
+        then raise (Failure "Empty lists are not supported")
+        else
+          let (env, elements) = evaluate_exprs env elist in
+          (env, L.const_array (L.type_of (List.hd elements))
+                              (Array.of_list elements))
+    | A.Noexpr -> (env, L.const_int i32_t 0)
+    | A.Id id -> 
+        (env, L.build_load (lookup env id) "identifier" env.builder)
+    | A.Binop (e1, op, e2) ->
+        let (env, e1') = expr env e1 in
+        let (env, e2') = expr env e2 in
+        (env,
+        (match op with
+            A.Add     -> L.build_add
+          | A.Sub     -> L.build_sub
+          | A.Mult    -> L.build_mul
+          | A.Div     -> L.build_sdiv
+          | A.And     -> L.build_and
+          | A.Or      -> L.build_or
+          | A.Equal   -> L.build_icmp L.Icmp.Eq
+          | A.Neq     -> L.build_icmp L.Icmp.Ne
+          | A.Less    -> L.build_icmp L.Icmp.Slt
+          | A.Leq     -> L.build_icmp L.Icmp.Sle
+          | A.Greater -> L.build_icmp L.Icmp.Sgt
+          | A.Geq     -> L.build_icmp L.Icmp.Sge
+        ) e1' e2' "tmp" env.builder)
+    | A.Unop(op, e) ->
+        let (env, e') = expr env e in
+        (env,
+        (match op with
+            A.Neg     -> L.build_neg
+          | A.Not     -> L.build_not) e' "tmp" env.builder)
+    | A.Assign (s, e) -> 
+        let (env, e') = expr env e in
+        let addr = lookup env s in
+
+(*          prerr_endline (L.string_of_llvalue addr);
+        prerr_endline (L.string_of_lltype (L.type_of addr));
+        prerr_endline (L.string_of_lltype (L.type_of e')); *)
+        
+        ignore (L.build_store e' addr env.builder);
+
+        (env, e')
+
+    | A.Call (A.NaiveId("printi"), [e]) ->
+        let (env, v) = expr env e in
+        (env, (L.build_call printf_func
+                            [| int_format_str ; v |]
+                            "printi" env.builder))
+
+    | A.Call (A.NaiveId("printb"), [e]) ->
+        let (env, v) = expr env e in
+        (env, (L.build_call printf_func 
+                            [| int_format_str ; v |]
+                            "printb" env.builder))
+
+    | A.Call (A.NaiveId("print"), [e]) -> 
+        let s_ptr = snd (expr env e) in
+        (env, L.build_call printf_func 
+                          [| s_ptr |] "print" 
+                          env.builder)
+
+    | A.Call (A.NaiveId("printf"), [e]) ->
+        let (env, v) = expr env e in
+        (env, L.build_call printf_func
+                          [| float_format_str ; v |]
+                          "printf" env.builder)
+
+    | A.Call (f, act) ->
+        let fdef = lookup env f in
+        (* let (fdef, fdecl) = StringMap.find f function_decls in *)
+        let (env, actuals) = List.fold_left 
+                              (fun (env, values) e ->
+                                let (env', v) = expr env e in
+                                (env', v :: values))
+                              (env, [])
+                              act in
+        let result = A.string_of_id f ^ "_result" in
+        (env, L.build_call fdef (Array.of_list actuals) result env.builder)
+  in
+
+  let rec init_of_type t = 
+    match t with
+      A.DataType(A.Int) -> L.const_int (ltype_of_typ t) 0 
+    | A.DataType(A.Bool) -> L.const_int (ltype_of_typ t) 0 
+    | A.DataType(A.Float) -> L.const_float (ltype_of_typ t) 0.0 
+    | A.DataType(A.String) -> L.const_string context "" 
+    | A.List(t') -> L.const_array (ltype_of_typ t') [||]
+    | A.Struct(_, blist) -> 
+       let tlist = List.map fst blist in 
+       L.const_named_struct (ltype_of_typ t) 
+                            (Array.of_list (List.map init_of_type tlist))
+    | A.UserType(_) as t -> let t' = S.resolve_user_type t user_types in
+                            init_of_type t'
+    | _ -> raise (Failure "Please see documentation. Grammar error. ")
+  in
+
+  (* Declare each global variable; remember its value in a map *)
+  let global_env = 
+    List.fold_left 
+    (fun env stmt -> 
+    begin match stmt with
+        A.Global(vd) -> 
+          begin match vd with 
+            A.Bind(t, id) -> 
+              let init = init_of_type t in
+              let var = L.define_global id init the_module in
+              { env with externals = StringMap.add id var env.externals }
+          | A.Binass(_, id, e) -> 
+              let (env', init) = (expr env e) in
+              let var = L.define_global id init the_module in
+              prerr_endline (L.string_of_lltype (L.type_of var));
+              (* ignore(L.build_store value var global_builder); *)
+              { env' with externals = StringMap.add id var env'.externals }
+          end
+      | _ -> env
+     end)
+    { externals = StringMap.empty; locals = StringMap.empty; builder = global_builder }
+    global_stmts
+  in
+
   (* Fill in the body of the given function *)
   let build_function_body fdecl =
     let (the_function, _) = StringMap.find fdecl.A.fname function_decls in
     let builder = L.builder_at_end context (L.entry_block the_function) in
-
-    let int_format_str = L.build_global_stringptr "%d\n" "fmt" builder
-    and float_format_str = L.build_global_stringptr "%f\n" "fmt" builder in
-    
-    (* Construct the function's "locals": formal arguments and locally
-       declared variables.  Allocate each on the stack, initialize their
-       value, if appropriate, and remember their values in the "locals" map *)
-    (* let local_vars = *)
-    (*   let add_local m (t, n) = *)
-	  (*     let local_var = L.build_alloca (ltype_of_typ t) n builder *)
-	  (*     in StringMap.add n local_var m in *)
-
-    (*   (\* List.fold_left add_local formals fdecl.A.locals in *\) *)
-
-    (* Return the address of a variable or formal argument *)
-    let rec lookup env x = 
-      (* prerr_endline ("looking up " ^ A.string_of_id x); *)
-      begin match x with
-        A.NaiveId(n) -> 
-        (try StringMap.find n env.locals
-         with Not_found -> 
-           (try StringMap.find n env.externals
-            with Not_found -> raise (Failure ("undeclared variable " ^ n))))
-      | A.MemberId(id, field_name) -> 
-         let rec find_index_of field_name list = 
-           match list with
-             [] -> raise (Failure ("undeclared field " ^ field_name))
-           | hd :: tl -> if field_name = (snd hd) 
-                         then 0 
-                         else 1 + find_index_of field_name tl
-         in
-         let container_addr = lookup env id in
-         let container = L.build_load container_addr "" builder in 
-         let container_tname_opt = L.struct_name (L.type_of container) in
-         (match container_tname_opt with
-            None -> raise (Failure ("expected struct, found tuple: " ^ A.string_of_id id))
-          | Some(container_tname) ->
-             let fields = StringMap.find container_tname struct_map in
-             let idx = find_index_of field_name fields in
-             let addr = L.build_struct_gep container_addr idx "" builder in
-             addr)
-      (* L.build_load addr ("load_" ^ A.string_of_id x) builder) *)
-      | A.IndexId(id, e) ->
-         let container_addr = lookup env id in
-         let container = L.build_load container_addr "" builder in
-         let index = snd (expr env e) in 
-         (* prerr_endline "4"; *)
-         let addr = L.build_gep container_addr [| index |] "tmp" builder in
-         (* prerr_endline ("oink " ^ L.string_of_lltype (L.type_of addr)); *)
-         let oink = L.build_pointercast addr (L.pointer_type (L.element_type (L.type_of container))) "" builder in
-         oink
-      end
-
-    and
-
-    (* Construct code for an expression; return its value *)
-     expr env = 
-      let evaluate_exprs env exprs = List.fold_left 
-                                       (fun (env, values) e ->
-                                         let (env', v) = expr env e in
-                                         (env', v :: values))
-                                       (env, [])
-                                       exprs
-      in
-      function
-	      A.IntLit i -> (env, L.const_int i32_t i)
-      | A.BoolLit b -> (env, L.const_int i1_t (if b then 1 else 0))
-      | A.StringLit s -> (env, L.build_global_stringptr s "" env.builder)
-      | A.FloatLit f -> (env, L.const_float dbl_t f)
-      | A.TupleLit elist -> 
-         let (env, elements) = evaluate_exprs env elist in
-         (env, L.const_struct context (Array.of_list elements))
-      | A.ListLit elist ->
-         if List.length elist == 0 
-         then raise (Failure "Empty lists are not supported")
-         else
-           let (env, elements) = evaluate_exprs env elist in
-           (env, L.const_array (L.type_of (List.hd elements))
-                               (Array.of_list elements))
-      | A.Noexpr -> (env, L.const_int i32_t 0)
-      | A.Id id -> 
-         (env, L.build_load (lookup env id) "identifier" env.builder)
-      | A.Binop (e1, op, e2) ->
-	       let (env, e1') = expr env e1 in
-	       let (env, e2') = expr env e2 in
-         (env,
-	        (match op with
-	           A.Add     -> L.build_add
-	         | A.Sub     -> L.build_sub
-	         | A.Mult    -> L.build_mul
-           | A.Div     -> L.build_sdiv
-	         | A.And     -> L.build_and
-	         | A.Or      -> L.build_or
-	         | A.Equal   -> L.build_icmp L.Icmp.Eq
-	         | A.Neq     -> L.build_icmp L.Icmp.Ne
-	         | A.Less    -> L.build_icmp L.Icmp.Slt
-	         | A.Leq     -> L.build_icmp L.Icmp.Sle
-	         | A.Greater -> L.build_icmp L.Icmp.Sgt
-	         | A.Geq     -> L.build_icmp L.Icmp.Sge
-	        ) e1' e2' "tmp" env.builder)
-      | A.Unop(op, e) ->
-	       let (env, e') = expr env e in
-         (env,
-	        (match op with
-	           A.Neg     -> L.build_neg
-           | A.Not     -> L.build_not) e' "tmp" env.builder)
-      | A.Assign (s, e) -> 
-         let (env, e') = expr env e in
-         let addr = lookup env s in
-
-(*          prerr_endline (L.string_of_llvalue addr);
-	       prerr_endline (L.string_of_lltype (L.type_of addr));
-         prerr_endline (L.string_of_lltype (L.type_of e')); *)
-         
-         ignore (L.build_store e' addr env.builder);
-
-         (env, e')
-
-      | A.Call (A.NaiveId("printi"), [e]) ->
-         let (env, v) = expr env e in
-         (env, (L.build_call printf_func
-                             [| int_format_str ; v |]
-	                           "printi" env.builder))
-
-      | A.Call (A.NaiveId("printb"), [e]) ->
-         let (env, v) = expr env e in
-	       (env, (L.build_call printf_func 
-                             [| int_format_str ; v |]
-	                           "printb" env.builder))
-
-      | A.Call (A.NaiveId("print"), [e]) -> 
-         let get_string = function A.StringLit s -> s | _ -> "" in
-         let s_ptr = L.build_global_stringptr ((get_string e) ^ "\n") ".str" env.builder in
-         (env, L.build_call printf_func 
-                            [| s_ptr |] "print" 
-                            env.builder)
-
-      | A.Call (A.NaiveId("printf"), [e]) ->
-         let (env, v) = expr env e in
-         (env, L.build_call printf_func
-                            [| float_format_str ; v |]
-                            "printf" env.builder)
-
-      | A.Call (f, act) ->
-         let fdef = lookup env f in
-         (* let (fdef, fdecl) = StringMap.find f function_decls in *)
-         let (env, actuals) = List.fold_left 
-                                (fun (env, values) e ->
-                                  let (env', v) = expr env e in
-                                  (env', v :: values))
-                                (env, [])
-                                act in
-         let result = A.string_of_id f ^ "_result" in
-         (env, L.build_call fdef (Array.of_list actuals) result builder)
-    in
 
     (* Invoke "f env.builder" if the current block doesn't already
        have a terminal (e.g., a branch). *)
@@ -308,10 +320,20 @@ let translate (global_stmts, functions) =
        the statement's successor *)
     let rec stmt env = function
 	      A.Block sl -> 
-        (*local -> global; local.clr() *)
+
+        let nenv = {
+          locals = StringMap.empty;
+          externals = 
+            StringMap.merge (fun _ xo yo -> match xo,yo with
+                | Some x, Some _ -> Some x 
+                | None, yo -> yo
+                | xo, None -> xo ) env.locals env.externals;
+          builder = env.builder
+        } in
         
-        
-        List.fold_left stmt env sl
+        ignore(List.fold_left stmt nenv sl); 
+        env
+
       | A.Expr e -> fst (expr env e)
       | A.Return e ->
          let (env, v) = expr env e in
@@ -378,10 +400,11 @@ let translate (global_stmts, functions) =
                                   (Array.to_list (L.params the_function)) in
   
     let env = List.fold_left stmt 
-                             { externals = global_vars;
+                             { externals = global_env.externals;
                                locals    = formals;
                                builder   = builder }
-                             fdecl.A.body in
+                             fdecl.A.body 
+    in
 
     (* Add a return if the last block falls off the end *)
     add_terminal env (match fdecl.A.typ with
