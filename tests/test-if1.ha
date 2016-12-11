@@ -1,12 +1,12 @@
 int main(){
 
-int a = 3;
-printi(a);
+# int a = 3;
+# printi(a);
 
+list[int] j = [37, 23, 12];
 
-
-list[int] j;
-j[1] = 5;
+printi(j[0]);
 printi(j[1]);
+printi(j[2]);
 
 }

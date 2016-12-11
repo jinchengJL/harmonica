@@ -64,7 +64,7 @@ let translate (global_stmts, functions) =
     | A.DataType(A.String) -> string_t
     | A.Tuple(tlist) -> L.struct_type context (Array.of_list (List.map ltype_of_typ tlist))
     (* TODO: implement dynamic arrays *)
-    | A.List(t) -> L.array_type (ltype_of_typ t) 256
+    | A.List(t) -> L.array_type (ltype_of_typ t) 3
     (* TODO: channels *)
     | A.Struct(name, blist) ->
       (try StringMap.find name !typ_cache
@@ -187,7 +187,7 @@ let translate (global_stmts, functions) =
         else
           let (env, elements) = evaluate_exprs env elist in
           (env, L.const_array (L.type_of (List.hd elements))
-                              (Array.of_list elements))
+                              (Array.of_list (List.rev elements)))
     | A.Noexpr -> (env, L.const_int i32_t 0)
     | A.Id id -> 
         (env, L.build_load (lookup env id) "identifier" env.builder)
@@ -380,11 +380,27 @@ let translate (global_stmts, functions) =
             let local_var = L.build_alloca (ltype_of_typ t) id builder in
             {env with locals = StringMap.add id local_var env.locals} 
          | A.Binass(t, id, e) -> 
+            
             let local_var = L.build_alloca (ltype_of_typ t) id builder in
             let (env, e') = expr env e in
             let env' = {env with locals = StringMap.add id local_var env.locals} in
-            ignore (L.build_store e' (lookup env' (A.NaiveId id)) env.builder); 
-            env'
+
+            let e_type = L.type_of e' in 
+            let p = (lookup env' (A.NaiveId id)) in
+            match (L.classify_type e_type) with 
+              L.TypeKind.Array -> (
+                  let _ = L.array_length e_type in
+                  ignore (L.build_store e' p env.builder);
+                  prerr_endline (L.string_of_llvalue e');
+                  prerr_endline (L.string_of_llvalue p);
+                  (* TODO: array can't bulk load *)
+                  env'
+                )
+              | _ -> (
+                prerr_endline (L.string_of_llvalue p);
+                ignore (L.build_store e' p env.builder);
+                env' 
+              )
          end
     in
 
