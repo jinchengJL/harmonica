@@ -123,10 +123,9 @@ let check (global_stmts, functions) =
             List(t) -> (match expr env e with DataType(Int) -> t | _ -> raise (Failure "WTF. Must be int.")) 
           | _ -> raise (Failure "WTF. Must be list.")
       ) 
-  and 
 
   (* Return the type of an expression or throw an exception *)
-  expr env = function
+  and expr env = function
 	    IntLit _ -> DataType(Int)
     | BoolLit _ -> DataType(Bool)
     | StringLit _ -> DataType(String)

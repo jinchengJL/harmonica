@@ -24,6 +24,11 @@ type environment = {
     builder: L.llbuilder;
   }
 
+let debug msg =
+  if false
+  then prerr_endline msg
+  else ()
+
 let translate (global_stmts, functions) =
   let context = L.global_context () in
   let the_module = L.create_module context "Harmonica"
@@ -64,7 +69,7 @@ let translate (global_stmts, functions) =
     | A.DataType(A.String) -> string_t
     | A.Tuple(tlist) -> L.struct_type context (Array.of_list (List.map ltype_of_typ tlist))
     (* TODO: implement dynamic arrays *)
-    | A.List(t) -> L.array_type (ltype_of_typ t) 3
+    | A.List(t) -> L.pointer_type (ltype_of_typ t)
     (* TODO: channels *)
     | A.Struct(name, blist) ->
       (try StringMap.find name !typ_cache
@@ -104,7 +109,6 @@ let translate (global_stmts, functions) =
   (* in *)
   
 
-
   (* Declare printf(), which the print built-in function will call *)
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
   let printf_func = L.declare_function "printf" printf_t the_module in
@@ -122,15 +126,20 @@ let translate (global_stmts, functions) =
 
 
   let (main_function, _) = StringMap.find "main" function_decls in
-  (*let block_before_main = L.insert_block context "__global__" (L.entry_block main_function) in*)
   let global_builder = L.builder_at_end context (L.entry_block main_function) in
 
   let int_format_str = L.build_global_stringptr "%d\n" "fmt" global_builder in
   let float_format_str = L.build_global_stringptr "%f\n" "fmt" global_builder in
 
+  let llstore lval laddr builder =
+    let ptr = L.build_pointercast laddr (L.pointer_type (L.type_of lval)) "" builder in
+    let store_inst = (L.build_store lval ptr builder) in
+    debug ("store instruction = " ^ (L.string_of_llvalue store_inst));
+    ()
+  in
+
   (* Return the address of a variable or formal argument *)
   let rec lookup env x = 
-    (* prerr_endline ("looking up " ^ A.string_of_id x); *)
     begin match x with
       A.NaiveId(n) -> 
       (try StringMap.find n env.locals
@@ -156,41 +165,54 @@ let translate (global_stmts, functions) =
             let addr = L.build_struct_gep container_addr idx "" env.builder in
             addr)
     | A.IndexId(id, e) ->
-        let container_addr = lookup env id in
-        let container = L.build_load container_addr "" env.builder in
-        let index = snd (expr env e) in 
-        let addr = L.build_gep container_addr [| index |] "tmp" env.builder in
-        let oink = L.build_pointercast addr (L.pointer_type (L.element_type (L.type_of container))) "" env.builder in
-        oink
+        let array_pp = lookup env id in (* ptr to ptr to array *)
+        let array_ptr = L.build_load array_pp "" env.builder in
+        let index = snd (expr env e) in
+        debug ("index = " ^ (L.string_of_llvalue index));
+        let eaddr = L.build_gep array_ptr [|index|] "" env.builder in
+        debug ("eaddr = " ^ (L.string_of_llvalue eaddr));
+        (* let etype = L.element_type (L.type_of array_ptr) in *)
+        (* let ptr = L.build_pointercast eaddr (L.pointer_type etype) "" env.builder in *)
+        eaddr
     end
 
   (* Construct code for an expression; return its value *)
-    and expr env = 
-    let evaluate_exprs env exprs = List.fold_left 
-                                      (fun (env, values) e ->
-                                        let (env', v) = expr env e in
-                                        (env', v :: values))
-                                      (env, [])
-                                      exprs
+  and expr env = 
+    let evaluate_exprs env exprs =
+      let (env', relements) = List.fold_left
+                                (fun (env, values) e ->
+                                  let (env', v) = expr env e in
+                                  (env', v :: values))
+                                (env, [])
+                                exprs in
+      (env', List.rev relements)
     in
     function
       A.IntLit i -> (env, L.const_int i32_t i)
     | A.BoolLit b -> (env, L.const_int i1_t (if b then 1 else 0))
     | A.StringLit s -> (env, L.build_global_stringptr s "" env.builder)
     | A.FloatLit f -> (env, L.const_float dbl_t f)
-    | A.TupleLit elist -> 
-        let (env, elements) = evaluate_exprs env elist in
-        (env, L.const_struct context (Array.of_list elements))
+    | A.TupleLit _ -> raise (Failure "tuples are currently not supported")
+        (* let (env, elements) = evaluate_exprs env elist in *)
+        (* (env, L.const_struct context (Array.of_list elements)) *)
     | A.ListLit elist ->
-        if List.length elist == 0 
+        if List.length elist == 0
         then raise (Failure "Empty lists are not supported")
         else
           let (env, elements) = evaluate_exprs env elist in
-          (env, L.const_array (L.type_of (List.hd elements))
-                              (Array.of_list (List.rev elements)))
+          let etype = L.type_of (List.hd elements) in
+          let array = L.const_array etype (Array.of_list elements) in
+          debug ("array = " ^ L.string_of_llvalue array);
+          let ptr = L.build_alloca (L.type_of array) "" env.builder in
+          let eptr = L.build_pointercast ptr 
+                                         (L.pointer_type etype) 
+                                         ""
+                                         env.builder in
+          ignore (llstore array ptr env.builder);
+          (env, eptr)
     | A.Noexpr -> (env, L.const_int i32_t 0)
     | A.Id id -> 
-        (env, L.build_load (lookup env id) "identifier" env.builder)
+        (env, L.build_load (lookup env id) "" env.builder)
     | A.Binop (e1, op, e2) ->
         let (env, e1') = expr env e1 in
         let (env, e2') = expr env e2 in
@@ -218,13 +240,7 @@ let translate (global_stmts, functions) =
     | A.Assign (s, e) -> 
         let (env, e') = expr env e in
         let addr = lookup env s in
-
-(*          prerr_endline (L.string_of_llvalue addr);
-        prerr_endline (L.string_of_lltype (L.type_of addr));
-        prerr_endline (L.string_of_lltype (L.type_of e')); *)
-        
-        ignore (L.build_store e' addr env.builder);
-
+        ignore (llstore e' addr env.builder);
         (env, e')
 
     | A.Call (A.NaiveId("printi"), [e]) ->
@@ -266,18 +282,18 @@ let translate (global_stmts, functions) =
 
   let rec init_of_type t = 
     match t with
-      A.DataType(A.Int) -> L.const_int (ltype_of_typ t) 0 
+      A.DataType(A.Int) -> L.const_int (ltype_of_typ t) 0
     | A.DataType(A.Bool) -> L.const_int (ltype_of_typ t) 0 
     | A.DataType(A.Float) -> L.const_float (ltype_of_typ t) 0.0 
     | A.DataType(A.String) -> L.const_string context "" 
-    | A.List(t') -> L.const_array (ltype_of_typ t') [||]
+    | A.List(_) -> L.const_null (ltype_of_typ t)
     | A.Struct(_, blist) -> 
        let tlist = List.map fst blist in 
        L.const_named_struct (ltype_of_typ t) 
                             (Array.of_list (List.map init_of_type tlist))
     | A.UserType(_) as t -> let t' = S.resolve_user_type t user_types in
                             init_of_type t'
-    | _ -> raise (Failure "Please see documentation. Grammar error. ")
+    | _ -> raise (Failure ("Global variable with unsupported type: " ^ (A.string_of_typ t)))
   in
 
   (* Declare each global variable; remember its value in a map *)
@@ -287,15 +303,18 @@ let translate (global_stmts, functions) =
     begin match stmt with
         A.Global(vd) -> 
           begin match vd with 
-            A.Bind(t, id) -> 
+            A.Bind(t, id) ->
               let init = init_of_type t in
+              debug ("init = " ^ (L.string_of_llvalue init));
               let var = L.define_global id init the_module in
               { env with externals = StringMap.add id var env.externals }
-          | A.Binass(_, id, e) -> 
-              let (env', init) = (expr env e) in
+          | A.Binass(t, id, e) -> 
+              let init = init_of_type t in
+              debug ("init = " ^ (L.string_of_llvalue init));
               let var = L.define_global id init the_module in
-              prerr_endline (L.string_of_lltype (L.type_of var));
-              (* ignore(L.build_store value var global_builder); *)
+              debug ("gvar type = " ^ (L.string_of_lltype (L.type_of var)));
+              let (env', lval) = (expr env e) in
+              ignore (llstore lval var env'.builder);
               { env' with externals = StringMap.add id var env'.externals }
           end
       | _ -> env
@@ -378,29 +397,14 @@ let translate (global_stmts, functions) =
          begin match vd with
            A.Bind(t, id) -> 
             let local_var = L.build_alloca (ltype_of_typ t) id builder in
-            {env with locals = StringMap.add id local_var env.locals} 
+            {env with locals = StringMap.add id local_var env.locals}
          | A.Binass(t, id, e) -> 
-            
-            let local_var = L.build_alloca (ltype_of_typ t) id builder in
+            let local_var =  L.build_alloca (ltype_of_typ t) id builder in
             let (env, e') = expr env e in
             let env' = {env with locals = StringMap.add id local_var env.locals} in
-
-            let e_type = L.type_of e' in 
             let p = (lookup env' (A.NaiveId id)) in
-            match (L.classify_type e_type) with 
-              L.TypeKind.Array -> (
-                  let _ = L.array_length e_type in
-                  ignore (L.build_store e' p env.builder);
-                  prerr_endline (L.string_of_llvalue e');
-                  prerr_endline (L.string_of_llvalue p);
-                  (* TODO: array can't bulk load *)
-                  env'
-                )
-              | _ -> (
-                prerr_endline (L.string_of_llvalue p);
-                ignore (L.build_store e' p env.builder);
-                env' 
-              )
+            ignore (llstore e' p env.builder);
+            env'
          end
     in
 
