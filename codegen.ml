@@ -142,10 +142,14 @@ let translate (global_stmts, functions) =
   let rec lookup env x = 
     begin match x with
       A.NaiveId(n) -> 
-      (try StringMap.find n env.locals
-        with Not_found -> 
-          (try StringMap.find n env.externals
-          with Not_found -> raise (Failure ("undeclared variable " ^ n))))
+      let result = 
+        (try StringMap.find n env.locals
+         with Not_found -> 
+           (try StringMap.find n env.externals
+            with Not_found -> raise (Failure ("undeclared variable " ^ n))))
+      in
+      (* debug ("lookup: " ^ n ^ " = " ^ (L.string_of_llvalue result)); *)
+      result
     | A.MemberId(id, field_name) -> 
         let rec find_index_of field_name list = 
           match list with
@@ -200,16 +204,29 @@ let translate (global_stmts, functions) =
         then raise (Failure "Empty lists are not supported")
         else
           let (env, elements) = evaluate_exprs env elist in
+          debug ("elements = " ^ String.concat ", " (List.map L.string_of_llvalue elements));
           let etype = L.type_of (List.hd elements) in
-          let array = L.const_array etype (Array.of_list elements) in
-          debug ("array = " ^ L.string_of_llvalue array);
-          let ptr = L.build_alloca (L.type_of array) "" env.builder in
-          let eptr = L.build_pointercast ptr 
-                                         (L.pointer_type etype) 
-                                         ""
-                                         env.builder in
-          ignore (llstore array ptr env.builder);
-          (env, eptr)
+          debug ("etype = " ^ L.string_of_lltype etype);
+          (* let array = L.const_array etype (Array.of_list elements) in *)
+          (* debug ("array = " ^ L.string_of_llvalue array); *)
+          let num_elems = List.length elist in
+          let ptr = L.build_array_alloca 
+                      etype 
+                      (L.const_int i32_t num_elems)
+                      "" 
+                      env.builder in
+          (* let eptr = L.build_pointercast ptr  *)
+          (*                                (L.pointer_type etype)  *)
+          (*                                "" *)
+          (*                                env.builder in *)
+          ignore (List.fold_left 
+                    (fun i elem ->
+                      let ind = L.const_int i32_t i in
+                      let eptr = L.build_gep ptr [|ind|] "" env.builder in
+                      llstore elem eptr env.builder;
+                      i+1
+                    ) 0 elements);
+          (env, ptr)
     | A.Noexpr -> (env, L.const_int i32_t 0)
     | A.Id id -> 
         (env, L.build_load (lookup env id) "" env.builder)

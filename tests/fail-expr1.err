@@ -1,1 +1,1 @@
-Fatal error: exception Failure("illegal binary operator bool + int in d + a")
+Fatal error: exception Failure("illegal binary operator Bool Add Int in Binop(Id(d), Add, Id(a))")
