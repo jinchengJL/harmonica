@@ -291,8 +291,8 @@ let translate (global_stmts, functions) =
                                 (env', v :: values))
                               (env, [])
                               act in
-        let result = A.string_of_id f ^ "_result" in
-        (env, L.build_call fdef (Array.of_list actuals) result env.builder)
+        (* let result = A.string_of_id f ^ "_result" in *)
+        (env, L.build_call fdef (Array.of_list actuals) "" env.builder)
   in
 
   let rec init_of_type t = 
