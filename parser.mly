@@ -6,6 +6,7 @@ open Ast
 
 %token SEMI LPAREN RPAREN LBRACE RBRACE LBRACKET RBRACKET COMMA QUOTE DOT
 %token PLUS MINUS TIMES DIVIDE ASSIGN NOT
+%token CPLUS CMINUS
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR
 %token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID TUPLE LIST STRUCT_STMT TYPEDEF 
 %token CHANNEL PARALLEL CHAN LAMBDA 
@@ -16,6 +17,7 @@ open Ast
 
 %nonassoc NOELSE
 %nonassoc ELSE
+%right CPLUS CMINUS
 %right ASSIGN
 %left OR
 %left AND
@@ -143,6 +145,8 @@ expr:
   | id_expr               { Id($1) }
   | expr PLUS   expr { Binop($1, Add,   $3) }
   | expr MINUS  expr { Binop($1, Sub,   $3) }
+  | id_expr CPLUS expr  { Assign($1, Binop(Id($1), Add, $3))}
+  | id_expr CMINUS expr { Assign($1, Binop(Id($1), Sub, $3))}
   | expr TIMES  expr { Binop($1, Mult,  $3) }
   | expr DIVIDE expr { Binop($1, Div,   $3) }
   | expr EQ     expr { Binop($1, Equal, $3) }
