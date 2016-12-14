@@ -238,21 +238,41 @@ let translate (global_stmts, functions) =
     | A.Binop (e1, op, e2) ->
         let (env, e1') = expr env e1 in
         let (env, e2') = expr env e2 in
-        (env,
-        (match op with
-            A.Add     -> L.build_add
-          | A.Sub     -> L.build_sub
-          | A.Mult    -> L.build_mul
-          | A.Div     -> L.build_sdiv
-          | A.And     -> L.build_and
-          | A.Or      -> L.build_or
-          | A.Equal   -> L.build_icmp L.Icmp.Eq
-          | A.Neq     -> L.build_icmp L.Icmp.Ne
-          | A.Less    -> L.build_icmp L.Icmp.Slt
-          | A.Leq     -> L.build_icmp L.Icmp.Sle
-          | A.Greater -> L.build_icmp L.Icmp.Sgt
-          | A.Geq     -> L.build_icmp L.Icmp.Sge
-        ) e1' e2' "tmp" env.builder)
+        let exp_type = L.classify_type(L.type_of e1') in
+        (match exp_type with 
+        L.TypeKind.Double ->
+          (env,
+          (match op with
+              A.Add     -> L.build_fadd
+            | A.Sub     -> L.build_fsub
+            | A.Mult    -> L.build_fmul
+            | A.Div     -> L.build_fdiv
+            | A.And     -> L.build_and
+            | A.Or      -> L.build_or
+            | A.Equal   -> L.build_fcmp L.Fcmp.Oeq
+            | A.Neq     -> L.build_fcmp L.Fcmp.One
+            | A.Less    -> L.build_fcmp L.Fcmp.Ult
+            | A.Leq     -> L.build_fcmp L.Fcmp.Ole
+            | A.Greater -> L.build_fcmp L.Fcmp.Ogt
+            | A.Geq     -> L.build_fcmp L.Fcmp.Oge
+          ) e1' e2' "tmp" env.builder)
+        | _ ->
+          (env,
+          (match op with
+              A.Add     -> L.build_add
+            | A.Sub     -> L.build_sub
+            | A.Mult    -> L.build_mul
+            | A.Div     -> L.build_sdiv
+            | A.And     -> L.build_and
+            | A.Or      -> L.build_or
+            | A.Equal   -> L.build_icmp L.Icmp.Eq
+            | A.Neq     -> L.build_icmp L.Icmp.Ne
+            | A.Less    -> L.build_icmp L.Icmp.Slt
+            | A.Leq     -> L.build_icmp L.Icmp.Sle
+            | A.Greater -> L.build_icmp L.Icmp.Sgt
+            | A.Geq     -> L.build_icmp L.Icmp.Sge
+          ) e1' e2' "tmp" env.builder)
+        )
     | A.Unop(op, e) ->
         let (env, e') = expr env e in
         (env,
