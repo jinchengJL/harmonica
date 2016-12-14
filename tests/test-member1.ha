@@ -6,10 +6,10 @@ struct person {
 int main() {
     person p;
     p.age = 3;
-    printii(p.age);
+    printi(p.age);
 
     person p2;
     p2.age = 4;
-    printii(p2.age);
-    printii(p.age);
+    printi(p2.age);
+    printi(p.age);
 }
