@@ -25,7 +25,7 @@ type environment = {
   }
 
 let debug msg =
-  if false
+  if true
   then prerr_endline msg
   else ()
 
@@ -343,7 +343,7 @@ let translate (global_stmts, functions) =
   (* Fill in the body of the given function *)
   let build_function_body fdecl =
     let (the_function, _) = StringMap.find fdecl.A.fname function_decls in
-    let builder = L.builder_at_end context (L.entry_block the_function) in
+    let fbuilder = L.builder_at_end context (L.entry_block the_function) in
 
     (* Invoke "f env.builder" if the current block doesn't already
        have a terminal (e.g., a branch). *)
@@ -374,7 +374,7 @@ let translate (global_stmts, functions) =
       | A.Return e ->
          let (env, v) = expr env e in
          ignore (match fdecl.A.typ with
-	                 A.DataType(A.Void) -> L.build_ret_void builder
+	                 A.DataType(A.Void) -> L.build_ret_void env.builder
 	               | _ -> L.build_ret v env.builder);
          env
       | A.If (predicate, then_stmt, else_stmt) ->
@@ -389,12 +389,12 @@ let translate (global_stmts, functions) =
 	       add_terminal (stmt {env' with builder = (L.builder_at_end context else_bb)} else_stmt)
 	                    (L.build_br merge_bb);
 
-	       ignore (L.build_cond_br bool_val then_bb else_bb builder);
+	       ignore (L.build_cond_br bool_val then_bb else_bb env.builder);
 	       {env with builder = L.builder_at_end context merge_bb}
 
       | A.While (predicate, body) ->
 	       let pred_bb = L.append_block context "while" the_function in
-	       ignore (L.build_br pred_bb builder);
+	       ignore (L.build_br pred_bb env.builder);
 
 	       let pred_builder = L.builder_at_end context pred_bb in
 	       let (env', bool_val) = expr {env with builder = pred_builder} predicate in
@@ -413,10 +413,10 @@ let translate (global_stmts, functions) =
       | A.Local (vd) ->
          begin match vd with
            A.Bind(t, id) -> 
-            let local_var = L.build_alloca (ltype_of_typ t) id builder in
+            let local_var = L.build_alloca (ltype_of_typ t) id env.builder in
             {env with locals = StringMap.add id local_var env.locals}
          | A.Binass(t, id, e) -> 
-            let local_var =  L.build_alloca (ltype_of_typ t) id builder in
+            let local_var =  L.build_alloca (ltype_of_typ t) id env.builder in
             let (env, e') = expr env e in
             let env' = {env with locals = StringMap.add id local_var env.locals} in
             let p = (lookup env' (A.NaiveId id)) in
@@ -428,8 +428,8 @@ let translate (global_stmts, functions) =
     (* Build the code for each statement in the function *)
     let add_formal m (t, n) p =
       L.set_value_name n p;
-	    let local = L.build_alloca (ltype_of_typ t) n builder in
-	    ignore (L.build_store p local builder);
+	    let local = L.build_alloca (ltype_of_typ t) n fbuilder in
+	    ignore (L.build_store p local fbuilder);
 	    StringMap.add n local m
     in
     
@@ -439,8 +439,8 @@ let translate (global_stmts, functions) =
     let env = List.fold_left stmt 
                              { externals = global_env.externals;
                                locals    = formals;
-                               builder   = builder }
-                             fdecl.A.body 
+                               builder   = fbuilder }
+                             fdecl.A.body
     in
 
     (* Add a return if the last block falls off the end *)
