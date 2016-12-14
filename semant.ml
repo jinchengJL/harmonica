@@ -163,10 +163,18 @@ let check (global_stmts, functions) =
     | Unop(op, e) as ex -> 
        let t = expr env e in
 	     (match op with
-	        Neg when t = DataType(Int)  -> DataType(Int)
+
+	        Neg ->
+          (match t with
+              DataType(Float) -> DataType(Float)
+            | DataType(Int) -> DataType(Int)
+            |  _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
+	  		                         string_of_typ t ^ " in " ^ string_of_expr ex))
+          )
 	      | Not when t = DataType(Bool) -> DataType(Bool)
         | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
 	  		                         string_of_typ t ^ " in " ^ string_of_expr ex)))
+       
     | Noexpr -> DataType(Void)
     | Assign(var, e) as ex -> let lt = type_of_identifier env var
                               and rt = expr env e in
