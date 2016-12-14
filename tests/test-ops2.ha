@@ -1,17 +1,17 @@
 int main()
 {
-  printib(true);
-  printib(false);
-  printib(true && true);
-  printib(true && false);
-  printib(false && true);
-  printib(false && false);
-  printib(true || true);
-  printib(true || false);
-  printib(false || true);
-  printib(false || false);
-  printib(!false);
-  printib(!true);
+  printb(true);
+  printb(false);
+  printb(true && true);
+  printb(true && false);
+  printb(false && true);
+  printb(false && false);
+  printb(true || true);
+  printb(true || false);
+  printb(false || true);
+  printb(false || false);
+  printb(!false);
+  printb(!true);
   printi(-10);
   printi(--42);
 }

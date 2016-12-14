@@ -1,5 +1,3 @@
-# list[int] j = [5];
-
 int main(){
 	int i = 0;
 

@@ -120,7 +120,9 @@ let translate (global_stmts, functions) =
 	      Array.of_list (List.map (fun (t,_) -> ltype_of_typ t) fdecl.A.formals)
       in
       let ftype = L.function_type (ltype_of_typ fdecl.A.typ) formal_types in
-      StringMap.add name (L.define_function name ftype the_module, fdecl) m in
+      let fval  = L.define_function name ftype the_module in
+      debug (L.string_of_llvalue fval);
+      StringMap.add name (fval, fdecl) m in
     List.fold_left function_decl StringMap.empty functions in
 
   let (main_function, _) = StringMap.find "main" function_decls in
@@ -191,7 +193,10 @@ let translate (global_stmts, functions) =
     in
     function
       A.IntLit i -> (env, L.const_int i32_t i)
-    | A.BoolLit b -> (env, L.const_int i1_t (if b then 1 else 0))
+    | A.BoolLit b -> 
+       let llb = L.const_int i1_t (if b then 1 else 0) in
+       debug (L.string_of_llvalue llb);
+       (env, llb)
     | A.StringLit s -> (env, L.build_global_stringptr s "" env.builder)
     | A.FloatLit f -> (env, L.const_float dbl_t f)
     | A.TupleLit _ -> raise (Failure "tuples are currently not supported")
@@ -285,12 +290,13 @@ let translate (global_stmts, functions) =
     | A.Call (f, act) ->
         let fdef = lookup env f in
         (* let (fdef, fdecl) = StringMap.find f function_decls in *)
-        let (env, actuals) = List.fold_left 
-                              (fun (env, values) e ->
+        let (env, actuals) = List.fold_right
+                              (fun e (env, values) ->
                                 let (env', v) = expr env e in
                                 (env', v :: values))
+                              act
                               (env, [])
-                              act in
+                              in
         (* let result = A.string_of_id f ^ "_result" in *)
         (env, L.build_call fdef (Array.of_list actuals) "" env.builder)
   in

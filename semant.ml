@@ -48,8 +48,8 @@ let check (global_stmts, functions) =
   (* Structural type equality *)
   let rec typ_equal t1 t2 = 
     (match (t1, t2) with
-       (DataType(p1), DataType(p2)) -> if p1 = Unknown || p2 = Unknown 
-                                       then true 
+       (DataType(p1), DataType(p2)) -> if p1 = Unknown || p2 = Unknown
+                                       then true
                                        else p1 = p2
      | (Tuple(tlist1), Tuple(tlist2)) -> 
         List.for_all2 typ_equal tlist1 tlist2
@@ -235,9 +235,12 @@ let check (global_stmts, functions) =
     let fenv = List.fold_left 
                 (fun e (t, name) -> add_bind e t name) fenv func.formals in
 
-    let check_bool_expr env e = if expr env e != DataType(Bool)
-     then raise (Failure ("expected boolean expression in " ^ string_of_expr e))
-     else () in
+    let check_bool_expr env e = 
+      let t = expr env e in
+      if typ_equal t (DataType Bool)
+      then ()
+      else raise (Failure ("expected boolean expression in " ^ string_of_expr e))
+    in
 
     (* Verify a statement or throw an exception, returns updated environment *)
     let rec stmt senv = function
