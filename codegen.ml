@@ -80,7 +80,7 @@ let translate (global_stmts, functions) =
        struct_t)
     | A.UserType(_) as t -> let t' = S.resolve_user_type t user_types in
                             ltype_of_typ t'
-    | A.FuncType(tlist) as t ->
+    | A.FuncType(tlist) ->
        let ftype = 
          let llist = List.map ltype_of_typ tlist in
          let return_t = List.hd llist in
