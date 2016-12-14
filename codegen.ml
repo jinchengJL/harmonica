@@ -25,7 +25,7 @@ type environment = {
   }
 
 let debug msg =
-  if true
+  if false
   then prerr_endline msg
   else ()
 
@@ -366,9 +366,9 @@ let translate (global_stmts, functions) =
                 | xo, None -> xo ) env.locals env.externals;
           builder = env.builder
         } in
-        
-        ignore(List.fold_left stmt nenv sl); 
-        env
+
+        let nenv' = (List.fold_left stmt nenv sl) in
+        { env with builder = nenv'.builder }
 
       | A.Expr e -> fst (expr env e)
       | A.Return e ->
