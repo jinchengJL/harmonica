@@ -3,6 +3,6 @@ int main() {
 	int a = 3;
 	l[a] = 1;
 
-	printi(l[0]);
-  printi(l[3]);
+	printii(l[0]);
+  printii(l[3]);
 }

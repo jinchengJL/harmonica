@@ -1,12 +1,12 @@
 int a = 3;
 
 int main() {
-    printi(a);
+    printii(a);
     {
         int b = 3;
-        printi(b);
+        printii(b);
     }
 
-    printi(b);
+    printii(b);
     return 0;
 }

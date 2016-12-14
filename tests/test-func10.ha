@@ -5,6 +5,6 @@ list[int] f(int x) {
 
 int main() {
   list[int] arr = f(3);
-  printi(arr[1]);
+  printii(arr[1]);
   return 0;
 }

@@ -1,14 +1,14 @@
 int a;
 int b;
 
-void printa()
+void printia()
 {
-  print(a);
+  printi(a);
 }
 
-void printb()
+void printib()
 {
-  print(b);
+  printi(b);
 }
 
 void incab()
@@ -21,10 +21,10 @@ int main()
 {
   a = 42;
   b = 21;
-  printa();
-  printb();
+  printia();
+  printib();
   incab();
-  printa();
-  printb();
+  printia();
+  printib();
   return 0;
 }

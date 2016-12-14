@@ -4,12 +4,12 @@ int main(){
 	int i = 0;
 
 	if (i == 0){
-		printi(7);
+		printii(7);
 	} else {
-		printi(8);
+		printii(8);
 	}
 
 	# FAILED;
 	int b;
-	printi(9);
+	printii(9);
 }

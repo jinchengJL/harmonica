@@ -1,6 +1,6 @@
-# This program prints "hello world".
+# This program printis "hello world".
 int main()
 {
-  print("hello world");
+  printi("hello world");
   return 0;
 }

@@ -2,7 +2,7 @@ int main() {
     int b = 3;
     {
         int b = 4;
-        printi(b);
+        printii(b);
     }
-    printi(b);
+    printii(b);
 }
