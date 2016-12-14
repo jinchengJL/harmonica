@@ -1,1 +1,1 @@
-Fatal error: exception Failure("return gives bool expected int in true")
+Fatal error: exception Failure("return gives Bool expected Int in BoolLit(True)")

@@ -1,1 +1,1 @@
-Fatal error: exception Failure("return gives int expected void in 42")
+Fatal error: exception Failure("return gives Int expected Void in IntLit(42)")

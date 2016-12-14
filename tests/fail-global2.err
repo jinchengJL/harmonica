@@ -1,1 +1,1 @@
-Fatal error: exception Failure("duplicate global b")
+Fatal error: exception Failure("redefinition of b")

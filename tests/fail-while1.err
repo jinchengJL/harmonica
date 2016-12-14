@@ -1,1 +1,1 @@
-Fatal error: exception Failure("expected Boolean expression in 42")
+Fatal error: exception Failure("expected boolean expression in IntLit(42)")

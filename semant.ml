@@ -270,9 +270,11 @@ let check (global_stmts, functions) =
                          ignore (stmt senv b1);
                          ignore (stmt senv b2);
                          senv
-      | For(e1, e2, e3, st) -> ignore (expr senv e1); check_bool_expr senv e2;
-                               ignore (expr senv e3); ignore (stmt senv st);
-                               senv
+      | For(e1, e2, e3, st) -> 
+         ignore (expr senv e1);
+         check_bool_expr senv e2;
+         ignore (expr senv e3); ignore (stmt senv st);
+         senv
       | While(p, s) -> check_bool_expr senv p; ignore (stmt senv s); senv
       | Local(vd) -> add_vdecl senv vd
     in

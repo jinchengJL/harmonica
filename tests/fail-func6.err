@@ -1,1 +1,1 @@
-Fatal error: exception Failure("expecting 2 arguments in foo(42)")
+Fatal error: exception Failure("expecting 2 arguments in Call(foo, IntLit(42))")
