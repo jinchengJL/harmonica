@@ -362,7 +362,8 @@ let translate (global_stmts, functions) =
        the statement's successor *)
     let rec stmt env = function
 	      A.Block sl -> 
-
+	      let new_bb = L.append_block context "block" the_function in
+        let cont_bb = L.append_block context "cont" the_function in
         let nenv = {
           locals = StringMap.empty;
           externals = 
@@ -370,11 +371,13 @@ let translate (global_stmts, functions) =
                 | Some x, Some _ -> Some x 
                 | None, yo -> yo
                 | xo, None -> xo ) env.locals env.externals;
-          builder = env.builder
+          builder = L.builder_at_end context new_bb
         } in
 
         let nenv' = (List.fold_left stmt nenv sl) in
-        { env with builder = nenv'.builder }
+        add_terminal env (L.build_br new_bb);
+        add_terminal nenv' (L.build_br cont_bb);
+        { env with builder = L.builder_at_end context cont_bb }
 
       | A.Expr e -> fst (expr env e)
       | A.Return e ->

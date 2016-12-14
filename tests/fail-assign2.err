@@ -1,1 +1,1 @@
-diff: fail-*.err: No such file or directory
+Fatal error: exception Failure("illegal assignment Bool = Int in Assign(b, IntLit(48))")

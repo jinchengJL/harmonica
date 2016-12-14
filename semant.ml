@@ -245,26 +245,22 @@ let check (global_stmts, functions) =
     (* Verify a statement or throw an exception, returns updated environment *)
     let rec stmt senv = function
 	      Block sl -> 
-        let check_block = function
-            [Return _ as s] -> stmt senv s
+        let rec check_block benv = function
+            [Return _ as s] -> stmt benv s
           | Return _ :: _ -> raise (Failure "nothing may follow a return")
-          | (_ :: _) as slist ->
-             (*senv.locals -> senv.externals*)
-
-            let nenv = {locals = StringMap.empty; 
-               externals = StringMap.merge (fun _ xo yo -> match xo,yo with
+          | s :: ss -> check_block (stmt benv s) ss
+          | [] -> benv
+        in
+        (* New symbol table for new scope *)
+        let benv = {
+            locals = StringMap.empty; 
+            externals = 
+              StringMap.merge (fun _ xo yo -> match xo,yo with
                 | Some x, Some _ -> Some x 
                 | None, yo -> yo
-                | xo, None -> xo ) senv.locals senv.externals } 
-            in
-
-            (* New symbol table for new scope *)
-            ignore (List.fold_left stmt nenv slist);
-            
-
-             senv
-          | [] -> senv
-        in check_block sl
+                | xo, None -> xo ) senv.locals senv.externals } in
+        ignore (check_block benv sl);
+        senv
       | Expr e -> ignore (expr senv e); senv
       | Return e -> let t = expr senv e in 
                     if typ_equal t func.typ then senv else
@@ -278,10 +274,9 @@ let check (global_stmts, functions) =
                                ignore (expr senv e3); ignore (stmt senv st);
                                senv
       | While(p, s) -> check_bool_expr senv p; ignore (stmt senv s); senv
-
       | Local(vd) -> add_vdecl senv vd
     in
-    ignore (List.fold_left stmt fenv func.body)
+    ignore (stmt fenv (Block func.body))
 
   in
   List.iter (check_function global_env) functions
