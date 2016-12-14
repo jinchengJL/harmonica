@@ -48,4 +48,7 @@ int main() {
   int a = c;
 
   <int <int bool> <int int>> f;
+  
+  float q = +.3;
+  i = i+1;
 }

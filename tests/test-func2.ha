@@ -10,6 +10,6 @@ int main()
 
   fun(i = 2, i = i+1);
 
-  print(i);
+  printi(i);
   return 0;
 }

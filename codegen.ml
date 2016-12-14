@@ -108,7 +108,6 @@ let translate (global_stmts, functions) =
   (*   | _ -> raise (Failure "Unsupported llvm type") *)
   (* in *)
   
-
   (* Declare printf(), which the print built-in function will call *)
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
   let printf_func = L.declare_function "printf" printf_t the_module in
@@ -123,7 +122,6 @@ let translate (global_stmts, functions) =
       let ftype = L.function_type (ltype_of_typ fdecl.A.typ) formal_types in
       StringMap.add name (L.define_function name ftype the_module, fdecl) m in
     List.fold_left function_decl StringMap.empty functions in
-
 
   let (main_function, _) = StringMap.find "main" function_decls in
   let global_builder = L.builder_at_end context (L.entry_block main_function) in
@@ -314,29 +312,31 @@ let translate (global_stmts, functions) =
   in
 
   (* Declare each global variable; remember its value in a map *)
+  let add_global env stmt = match stmt with
+      A.Global(vd) -> 
+      begin match vd with 
+        A.Bind(t, id) ->
+        let init = init_of_type t in
+        debug ("init = " ^ (L.string_of_llvalue init));
+        let var = L.define_global id init the_module in
+        { env with externals = StringMap.add id var env.externals }
+      | A.Binass(t, id, e) -> 
+         let init = init_of_type t in
+         debug ("init = " ^ (L.string_of_llvalue init));
+         let var = L.define_global id init the_module in
+         debug ("gvar type = " ^ (L.string_of_lltype (L.type_of var)));
+         let (env', lval) = (expr env e) in
+         ignore (llstore lval var env'.builder);
+         { env' with externals = StringMap.add id var env'.externals }
+      end
+    | _ -> env
+  in
+
   let global_env = 
-    List.fold_left 
-    (fun env stmt -> 
-    begin match stmt with
-        A.Global(vd) -> 
-          begin match vd with 
-            A.Bind(t, id) ->
-              let init = init_of_type t in
-              debug ("init = " ^ (L.string_of_llvalue init));
-              let var = L.define_global id init the_module in
-              { env with externals = StringMap.add id var env.externals }
-          | A.Binass(t, id, e) -> 
-              let init = init_of_type t in
-              debug ("init = " ^ (L.string_of_llvalue init));
-              let var = L.define_global id init the_module in
-              debug ("gvar type = " ^ (L.string_of_lltype (L.type_of var)));
-              let (env', lval) = (expr env e) in
-              ignore (llstore lval var env'.builder);
-              { env' with externals = StringMap.add id var env'.externals }
-          end
-      | _ -> env
-     end)
-    { externals = StringMap.empty; locals = StringMap.empty; builder = global_builder }
+    List.fold_left add_global
+    { externals = StringMap.map fst function_decls;
+      locals = StringMap.empty;
+      builder = global_builder }
     global_stmts
   in
 

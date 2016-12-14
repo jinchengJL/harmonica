@@ -63,7 +63,7 @@ rule token = parse
 (* int literal *)
 | ['0'-'9']+ as lxm { INT_LITERAL(int_of_string lxm) }
 (* float literal *)
-| ['-''+']?['0'-'9']*'.'?['0'-'9']+(['e''E']['-''+']?['0'-'9']+)? as lxm { FLOAT_LITERAL(float_of_string lxm) }
+| ['-''+']?['0'-'9']*('.')['0'-'9']+(['e''E']['-''+']?['0'-'9']+)? as lxm { FLOAT_LITERAL(float_of_string lxm) }
 (* ID *)
 | ['a'-'z' 'A'-'Z']['a'-'z' 'A'-'Z' '0'-'9' '_']* as lxm { ID(lxm) }
 
