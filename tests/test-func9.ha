@@ -7,6 +7,7 @@ bool bar(int c) {
 }
 
 int main() {
-    printib(foo(bar, 3));
+    <int bool> g = bar;
+    printb(foo(g, 3));
     return 0;
 }

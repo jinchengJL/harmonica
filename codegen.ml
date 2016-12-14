@@ -25,7 +25,7 @@ type environment = {
   }
 
 let debug msg =
-  if false
+  if true
   then prerr_endline msg
   else ()
 
@@ -78,14 +78,16 @@ let translate (global_stmts, functions) =
        L.struct_set_body struct_t (Array.of_list (List.map ltype_of_typ (List.map fst blist))) false;
        typ_cache := StringMap.add name struct_t !typ_cache;
        struct_t)
-
     | A.UserType(_) as t -> let t' = S.resolve_user_type t user_types in
                             ltype_of_typ t'
     | A.FuncType(tlist) ->
-       let reversed = List.map ltype_of_typ (List.rev tlist) in
-       let return_t = List.hd reversed in
-       let params_t = Array.of_list (List.rev (List.tl reversed)) in
-       L.function_type return_t params_t
+       let ftype = 
+         let reversed = List.map ltype_of_typ (List.rev tlist) in
+         let return_t = List.hd reversed in
+         let params_t = Array.of_list (List.rev (List.tl reversed)) in
+         L.function_type return_t params_t
+       in
+       L.pointer_type ftype
     | _ -> raise (Failure "Not yet implemented")
   in
 
@@ -115,13 +117,12 @@ let translate (global_stmts, functions) =
   (* Define each function (arguments and return type) so we can call it *)
   let function_decls =
     let function_decl m fdecl =
-      let name = fdecl.A.fname
-      and formal_types =
+      let name = fdecl.A.fname in
+      let formal_types =
 	      Array.of_list (List.map (fun (t,_) -> ltype_of_typ t) fdecl.A.formals)
       in
       let ftype = L.function_type (ltype_of_typ fdecl.A.typ) formal_types in
       let fval  = L.define_function name ftype the_module in
-      debug (L.string_of_llvalue fval);
       StringMap.add name (fval, fdecl) m in
     List.fold_left function_decl StringMap.empty functions in
 
@@ -213,11 +214,12 @@ let translate (global_stmts, functions) =
           (* let array = L.const_array etype (Array.of_list elements) in *)
           (* debug ("array = " ^ L.string_of_llvalue array); *)
           let num_elems = List.length elist in
-          let ptr = L.build_array_alloca 
-                      etype 
+          let ptr = L.build_array_malloc
+                      etype
                       (L.const_int i32_t num_elems)
                       "" 
                       env.builder in
+          (* debug ("ptr = " ^ L.string_of_llvalue ptr); *)
           (* let eptr = L.build_pointercast ptr  *)
           (*                                (L.pointer_type etype)  *)
           (*                                "" *)
@@ -288,7 +290,11 @@ let translate (global_stmts, functions) =
                           "printf" env.builder)
 
     | A.Call (f, act) ->
-        let fdef = lookup env f in
+        let fptr = lookup env f in
+        debug ("fptr = " ^ L.string_of_llvalue fptr);
+        let fdef = L.build_load fptr "" env.builder in
+        debug ("fdef = " ^ L.string_of_llvalue fdef);
+        debug ("fdef type = " ^ L.string_of_lltype (L.type_of fdef));
         (* let (fdef, fdecl) = StringMap.find f function_decls in *)
         let (env, actuals) = List.fold_right
                               (fun e (env, values) ->
@@ -348,6 +354,7 @@ let translate (global_stmts, functions) =
 
   (* Fill in the body of the given function *)
   let build_function_body fdecl =
+    debug ("building function " ^ fdecl.A.fname);
     let (the_function, _) = StringMap.find fdecl.A.fname function_decls in
     let fbuilder = L.builder_at_end context (L.entry_block the_function) in
 
@@ -381,11 +388,12 @@ let translate (global_stmts, functions) =
 
       | A.Expr e -> fst (expr env e)
       | A.Return e ->
-         let (env, v) = expr env e in
-         ignore (match fdecl.A.typ with
-	                 A.DataType(A.Void) -> L.build_ret_void env.builder
-	               | _ -> L.build_ret v env.builder);
-         env
+         let (env', v) = expr env e in
+         let ret = (match fdecl.A.typ with
+	                    A.DataType(A.Void) -> L.build_ret_void env'.builder
+	                  | _ -> L.build_ret v env'.builder) in
+         debug ("ret = " ^ L.string_of_llvalue ret);
+         env'
       | A.If (predicate, then_stmt, else_stmt) ->
          let (env', bool_val) = expr env predicate in
 	       let merge_bb = L.append_block context "merge" the_function in
@@ -437,6 +445,8 @@ let translate (global_stmts, functions) =
     (* Build the code for each statement in the function *)
     let add_formal m (t, n) p =
       L.set_value_name n p;
+      debug ("adding formal " ^ n);
+      debug ("type " ^ L.string_of_lltype (ltype_of_typ t));
 	    let local = L.build_alloca (ltype_of_typ t) n fbuilder in
 	    ignore (L.build_store p local fbuilder);
 	    StringMap.add n local m
@@ -444,6 +454,8 @@ let translate (global_stmts, functions) =
     
     let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
                                   (Array.to_list (L.params the_function)) in
+
+    debug "done with formals";
   
     let env = List.fold_left stmt 
                              { externals = global_env.externals;
@@ -455,7 +467,9 @@ let translate (global_stmts, functions) =
     (* Add a return if the last block falls off the end *)
     add_terminal env (match fdecl.A.typ with
                         A.DataType(A.Void) -> L.build_ret_void
-                      | t -> L.build_ret (L.const_int (ltype_of_typ t) 0))
+                      | t -> L.build_ret (init_of_type t));
+    debug ("done building " ^ fdecl.A.fname);
+    ()
   in
 
   List.iter build_function_body functions;
