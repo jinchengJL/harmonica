@@ -18,7 +18,7 @@ clean :
 	rm -rf testall.log *.diff harmonica scanner.ml parser.ml parser.mli
 	rm -rf *.err *.ll
 	rm -rf *.cmx *.cmi *.cmo *.cmx *.o
-	rm -rf *~ \#*
+	rm -rf *~ \#* *.out
 
 # More detailed: build using ocamlc/ocamlopt + ocamlfind to locate LLVM
 
