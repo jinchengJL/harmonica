@@ -3,6 +3,10 @@ bool foo(<int bool> f, int c) {
 }
 
 bool bar(int c) {
+     if (c == 3) {
+        printi(c + 1);
+        return false;
+     }
      return true;
 }
 

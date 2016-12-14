@@ -25,7 +25,7 @@ type environment = {
   }
 
 let debug msg =
-  if true
+  if false
   then prerr_endline msg
   else ()
 
@@ -80,11 +80,11 @@ let translate (global_stmts, functions) =
        struct_t)
     | A.UserType(_) as t -> let t' = S.resolve_user_type t user_types in
                             ltype_of_typ t'
-    | A.FuncType(tlist) ->
+    | A.FuncType(tlist) as t ->
        let ftype = 
-         let reversed = List.map ltype_of_typ (List.rev tlist) in
-         let return_t = List.hd reversed in
-         let params_t = Array.of_list (List.rev (List.tl reversed)) in
+         let llist = List.map ltype_of_typ tlist in
+         let return_t = List.hd llist in
+         let params_t = Array.of_list (List.tl llist) in
          L.function_type return_t params_t
        in
        L.pointer_type ftype
@@ -318,8 +318,8 @@ let translate (global_stmts, functions) =
        let tlist = List.map fst blist in 
        L.const_named_struct (ltype_of_typ t) 
                             (Array.of_list (List.map init_of_type tlist))
-    | A.UserType(_) as t -> let t' = S.resolve_user_type t user_types in
-                            init_of_type t'
+    | A.UserType(_) -> let t' = S.resolve_user_type t user_types in
+                       init_of_type t'
     | _ -> raise (Failure ("Global variable with unsupported type: " ^ (A.string_of_typ t)))
   in
 
@@ -346,7 +346,15 @@ let translate (global_stmts, functions) =
 
   let global_env = 
     List.fold_left add_global
-    { externals = StringMap.map fst function_decls;
+    { externals = 
+        StringMap.mapi (
+            fun name (fval, _) ->
+            let ft = L.type_of fval in
+            let fvar = L.define_global (name ^ "_ptr") (L.const_pointer_null ft) the_module in
+            ignore (llstore fval fvar global_builder);
+            debug ("fvar type = " ^ (L.string_of_lltype (L.type_of fvar)));
+            fvar
+          ) function_decls;
       locals = StringMap.empty;
       builder = global_builder }
     global_stmts
@@ -445,8 +453,7 @@ let translate (global_stmts, functions) =
     (* Build the code for each statement in the function *)
     let add_formal m (t, n) p =
       L.set_value_name n p;
-      debug ("adding formal " ^ n);
-      debug ("type " ^ L.string_of_lltype (ltype_of_typ t));
+      debug ("adding formal " ^ n ^ " of type " ^ L.string_of_lltype (ltype_of_typ t));
 	    let local = L.build_alloca (ltype_of_typ t) n fbuilder in
 	    ignore (L.build_store p local fbuilder);
 	    StringMap.add n local m
@@ -455,8 +462,6 @@ let translate (global_stmts, functions) =
     let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
                                   (Array.to_list (L.params the_function)) in
 
-    debug "done with formals";
-  
     let env = List.fold_left stmt 
                              { externals = global_env.externals;
                                locals    = formals;
