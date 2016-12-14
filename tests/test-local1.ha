@@ -1,6 +1,6 @@
 void foo(bool i)
 {
-  int i; /* Should hide the formal i */
+  int i; # Should hide the formal i
 
   i = 42;
   printi(i + i);
