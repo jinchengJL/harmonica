@@ -145,11 +145,15 @@ let check (global_stmts, functions) =
     | Binop(e1, op, e2) as e -> 
        let t1 = expr env e1 and t2 = expr env e2 in
 	     (match op with
-          Add | Sub | Mult | Div when t1 = t2 -> 
+          Add | Sub | Mult | Div  -> 
           (match t1 with 
-                DataType(Int) -> DataType(Int)
-              | DataType(Float) ->  DataType(Float)   
-              | _ -> DataType(Int)
+              DataType(Float) ->  DataType(Float) 
+            | _ ->
+                (match t2 with 
+                DataType(Float) -> DataType(Float)
+                | _ -> DataType(Int)
+                )
+
           )
 	        | Equal | Neq when t1 = t2 -> DataType(Bool)
 	        | Less | Leq | Greater | Geq 

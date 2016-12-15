@@ -239,8 +239,13 @@ let translate (global_stmts, functions) =
         let (env, e1') = expr env e1 in
         let (env, e2') = expr env e2 in
         let exp_type = L.classify_type(L.type_of e1') in
+        let exp_type2 = L.classify_type(L.type_of e2') in
         (match exp_type with 
         L.TypeKind.Double ->
+          let e2_ = match exp_type2 with 
+                    L.TypeKind.Double -> e2' 
+                    | L.TypeKind.Integer -> (L.const_uitofp e2' dbl_t)
+                    | _ -> raise (Failure "Algebra only supports float and int.") in 
           (env,
           (match op with
               A.Add     -> L.build_fadd
@@ -255,23 +260,43 @@ let translate (global_stmts, functions) =
             | A.Leq     -> L.build_fcmp L.Fcmp.Ole
             | A.Greater -> L.build_fcmp L.Fcmp.Ogt
             | A.Geq     -> L.build_fcmp L.Fcmp.Oge
-          ) e1' e2' "tmp" env.builder)
+          ) e1' e2_ "tmp" env.builder)
         | _ ->
-          (env,
-          (match op with
-              A.Add     -> L.build_add
-            | A.Sub     -> L.build_sub
-            | A.Mult    -> L.build_mul
-            | A.Div     -> L.build_sdiv
+          (match exp_type2 with 
+          L.TypeKind.Double -> 
+          let e1_ = L.const_uitofp e1' dbl_t in 
+            (env,
+            (match op with
+              A.Add     -> L.build_fadd
+            | A.Sub     -> L.build_fsub
+            | A.Mult    -> L.build_fmul
+            | A.Div     -> L.build_fdiv
             | A.And     -> L.build_and
             | A.Or      -> L.build_or
-            | A.Equal   -> L.build_icmp L.Icmp.Eq
-            | A.Neq     -> L.build_icmp L.Icmp.Ne
-            | A.Less    -> L.build_icmp L.Icmp.Slt
-            | A.Leq     -> L.build_icmp L.Icmp.Sle
-            | A.Greater -> L.build_icmp L.Icmp.Sgt
-            | A.Geq     -> L.build_icmp L.Icmp.Sge
-          ) e1' e2' "tmp" env.builder)
+            | A.Equal   -> L.build_fcmp L.Fcmp.Oeq
+            | A.Neq     -> L.build_fcmp L.Fcmp.One
+            | A.Less    -> L.build_fcmp L.Fcmp.Ult
+            | A.Leq     -> L.build_fcmp L.Fcmp.Ole
+            | A.Greater -> L.build_fcmp L.Fcmp.Ogt
+            | A.Geq     -> L.build_fcmp L.Fcmp.Oge
+            ) e1_ e2' "tmp" env.builder)
+          | _ ->
+            (env,
+            (match op with
+                A.Add     -> L.build_add
+              | A.Sub     -> L.build_sub
+              | A.Mult    -> L.build_mul
+              | A.Div     -> L.build_sdiv
+              | A.And     -> L.build_and
+              | A.Or      -> L.build_or
+              | A.Equal   -> L.build_icmp L.Icmp.Eq
+              | A.Neq     -> L.build_icmp L.Icmp.Ne
+              | A.Less    -> L.build_icmp L.Icmp.Slt
+              | A.Leq     -> L.build_icmp L.Icmp.Sle
+              | A.Greater -> L.build_icmp L.Icmp.Sgt
+              | A.Geq     -> L.build_icmp L.Icmp.Sge
+            ) e1' e2' "tmp" env.builder)
+          )  
         )
     | A.Unop(op, e) ->
         let (env, e') = expr env e in
