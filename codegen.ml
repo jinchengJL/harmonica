@@ -264,7 +264,10 @@ let translate (global_stmts, functions) =
         | _ ->
           (match exp_type2 with 
           L.TypeKind.Double -> 
-          let e1_ = L.const_uitofp e1' dbl_t in 
+          let e1_ = match exp_type with
+            L.TypeKind.Double -> e1'
+            | L.TypeKind.Integer -> L.const_uitofp e1' dbl_t
+            | _ -> raise (Failure "Algebra only supports float and int.") in 
             (env,
             (match op with
               A.Add     -> L.build_fadd

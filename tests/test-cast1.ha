@@ -1,6 +1,7 @@
 int main(){
-
-    printf(3/2.0);
-    printf(2/4.0);
+    float a = 2.0;
+    printf(3/a);
+    float b = 2.0/4;
+    printf(2.0/4);
     return 0;
 }
