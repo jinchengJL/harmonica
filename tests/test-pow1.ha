@@ -41,7 +41,7 @@ float exp(float x){
     float down;
     for (i=0; i<99; i=i+1){
         up = powi(x, i);
-        down = factorialf(fi);
+        down = factorialf(i/1.0);
         taylor = taylor + (up/down);
         fi = fi + 1.0;
     }
