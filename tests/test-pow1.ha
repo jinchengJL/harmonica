@@ -48,7 +48,21 @@ float exp(float x){
     return taylor;
 }
 
+float ln(float x){
+    float taylor = 0.0;
+    int i;
+    float tmp;
+    for (i=0; i<99; i=i+1){
+        int i_p = 2*i + 1;
+        tmp = 2*( powi((x-1)/(x+1), i_p) )/i_p;
+        taylor = taylor + tmp;
+    }
+    return taylor;
+}
 
+float pow(float x, float y){
+    return exp(y*ln(x));
+}
 
 
 int main(){
@@ -59,6 +73,13 @@ int main(){
     printf(exp(1.0)); # 2.718282
     printf(exp(2.0)); # 7.389056
     printf(exp(0.5)); # 1.648721
+
+    printf(ln(3.0)); # 1.098612
+    printf(ln(2.5)); # 0.916291
+
+    printf(pow(2.0, 0.5)); # 1.414214
+    printf(pow(7.2, -0.14));# 0.758531
+
 
     return 0;
 }
