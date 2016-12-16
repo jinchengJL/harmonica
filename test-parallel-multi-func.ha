@@ -16,10 +16,14 @@ int f4(int d){
 
 int main(){
     int a = 1
-    parallel([f1,f2,f3,f4],[a,a,a,a],4)
-    parallel([f1,f2,f3,f4],[a,a,a,a])
-    parallel(f1,[a,a,a,a])
-    parallel(f1,[a,a,a,a],4)
-    parallel([f1,f2,f3,f4],[a,a,a,a],2)
+    int b = 2
+    int c = 3
+    int d = 4
+
+    parallel([f1,f2,f3,f4],[a,b,c,d],4)
+    parallel([f1,f2,f3,f4],[a,b,c,d])
+    parallel(f1,[a,b,c,d])
+    parallel(f1,[a,b,c,d],4)
+    parallel([f1,f2,f3,f4],[a,b,c,d],2)
 }
 
