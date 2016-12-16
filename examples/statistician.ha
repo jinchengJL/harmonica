@@ -93,6 +93,8 @@ int main(){
     print("Variance GPA: ");
     printf(variance);
 
+    #concat("hi","there");
+
     return 0;
 }
 

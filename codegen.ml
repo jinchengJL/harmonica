@@ -114,6 +114,9 @@ let translate (global_stmts, functions) =
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
   let printf_func = L.declare_function "printf" printf_t the_module in
 
+  let str_concat_t = L.function_type void_t [| L.pointer_type i8_t ; L.pointer_type i8_t |] in
+  let str_concat_func = L.declare_function "str_concat" str_concat_t the_module in
+
   (* Define each function (arguments and return type) so we can call it *)
   let function_decls =
     let function_decl m fdecl =
@@ -344,6 +347,12 @@ let translate (global_stmts, functions) =
         (env, L.build_call printf_func
                           [| float_format_str ; v |]
                           "printf" env.builder)
+
+    | A.Call(A.NaiveId("concat"), e) ->
+        let v_of_expr e' = snd (expr env e') in
+        let v_list = List.map v_of_expr e in
+        let v_arr = Array.of_list v_list in
+        (env, L.build_call str_concat_func v_arr "" env.builder)
 
     | A.Call (f, act) ->
         let fptr = lookup env f in
