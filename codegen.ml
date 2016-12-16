@@ -131,6 +131,7 @@ let translate (global_stmts, functions) =
 
   let int_format_str = L.build_global_stringptr "%d\n" "fmt" global_builder in
   let float_format_str = L.build_global_stringptr "%f\n" "fmt" global_builder in
+  let endl_str = L.build_global_stringptr "\n" "fmt" global_builder in
 
   let llstore lval laddr builder =
     let ptr = L.build_pointercast laddr (L.pointer_type (L.type_of lval)) "" builder in
@@ -326,10 +327,17 @@ let translate (global_stmts, functions) =
                             "printb" env.builder))
 
     | A.Call (A.NaiveId("print"), [e]) -> 
-        let s_ptr = snd (expr env e) in
+        let (env, v) = expr env e in
         (env, L.build_call printf_func 
-                          [| s_ptr |] "print" 
+                          [| v |] "print" 
                           env.builder)
+    
+    | A.Call (A.NaiveId("printendl"), [e]) ->
+        let (env, v) = expr env e in
+        (env, L.build_call printf_func 
+                  [| endl_str; v |] "printendl" 
+                  env.builder)
+
 
     | A.Call (A.NaiveId("printf"), [e]) ->
         let (env, v) = expr env e in

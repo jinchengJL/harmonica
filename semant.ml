@@ -70,7 +70,7 @@ let check (global_stmts, functions) =
   in
 
   (**** Checking Functions Definitions ****)
-  let builtins = ["print"; "printb"; "printf"; "printi"] in
+  let builtins = ["print"; "printb"; "printf"; "printi"; "printendl"] in
   let builtin_duplicates = List.filter (fun fname -> List.mem fname builtins)
                                        (List.map (fun fd -> fd.fname) functions) in
   if List.length builtin_duplicates > 0
@@ -88,7 +88,8 @@ let check (global_stmts, functions) =
                    [("print", FuncType([DataType(Void); DataType(String)]));
                     ("printb", FuncType([DataType(Void); DataType(Bool)]));
                     ("printf", FuncType([DataType(Void); DataType(Float)]));
-                    ("printi", FuncType([DataType(Void); DataType(Int)]))]
+                    ("printi", FuncType([DataType(Void); DataType(Int)]));
+                    ("printendl", FuncType([DataType(Void); DataType(String)]))]
   in
 
   let get_functype fdecl = FuncType(fdecl.typ :: (List.map fst fdecl.formals)) in

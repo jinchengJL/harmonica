@@ -79,16 +79,13 @@ int main(){
 
     int i = 0;
     print("GPA in this class: ");
+    printendl("");
     for (i=0; i<n; i += 1){
         printf(gpa[i]);
-        if (i<n-1){
-            print(",");
-        } else {
-            print(".");
-        }
     }
 
     float mean = momentf(gpa, n, 1);
+    
     print("Mean GPA: ");
     printf(mean);
 
