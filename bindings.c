@@ -5,9 +5,10 @@
 
 #define BUFSIZE 4096
 
-void str_concat(void *str1, void *str2)
+void* str_concat(void *str1, void *str2)
 {
     strcat((char *)str1, (char *)str2);
+    return str1;
 }
 
 void int_to_string(int n, void *buf)

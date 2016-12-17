@@ -90,7 +90,7 @@ let check (global_stmts, functions) =
                     ("printf", FuncType([DataType(Void); DataType(Float)]));
                     ("printi", FuncType([DataType(Void); DataType(Int)]));
                     ("printendl", FuncType([DataType(Void); DataType(String)]));
-                    ("concat", FuncType([DataType(Void); DataType(String); DataType(String)]))
+                    ("concat", FuncType([DataType(String); DataType(String); DataType(String)]))
                     (* TODO: built-in multi argument functions, like concat*)
                     ]
   in

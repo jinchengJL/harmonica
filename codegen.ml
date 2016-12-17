@@ -113,7 +113,7 @@ let translate (global_stmts, functions) =
   let printf_t = L.var_arg_function_type i32_t [| L.pointer_type i8_t |] in
   let printf_func = L.declare_function "printf" printf_t the_module in
 
-  let str_concat_t = L.function_type void_t [| L.pointer_type i8_t ; L.pointer_type i8_t |] in
+  let str_concat_t = L.function_type string_t [| string_t; string_t|] in
   let str_concat_func = L.declare_function "str_concat" str_concat_t the_module in
 
   (* Define each function (arguments and return type) so we can call it *)
@@ -548,6 +548,6 @@ let translate (global_stmts, functions) =
 
   let llmem = L.MemoryBuffer.of_file "bindings.bc" in
   let llm = Llvm_bitreader.parse_bitcode context llmem in
-  ignore (Llvm_linker.link_modules the_module llm);
+  ignore (Llvm_linker.link_modules the_module llm Llvm_linker.Mode.PreserveSource);
 
   the_module
