@@ -38,6 +38,7 @@ let translate (global_stmts, functions) =
   and dbl_t  = L.double_type context
   and void_t = L.void_type   context in
   let string_t = L.pointer_type i8_t in
+  let voidstar_t = string_t in
 
   (* user-defined types *)
   let user_types = List.fold_left
@@ -115,6 +116,10 @@ let translate (global_stmts, functions) =
 
   let str_concat_t = L.function_type string_t [| string_t; string_t|] in
   let str_concat_func = L.declare_function "str_concat" str_concat_t the_module in
+ 
+  let subroutine_t = L.pointer_type (L.function_type voidstar_t [| voidstar_t |] ) in  
+  let parallel_t = L.function_type i32_t [| subroutine_t; L.pointer_type voidstar_t; i32_t; i32_t |] in
+  let parallel_func = L.declare_function "parallel" parallel_t the_module in
 
   (* Define each function (arguments and return type) so we can call it *)
   let function_decls =
@@ -347,14 +352,24 @@ let translate (global_stmts, functions) =
                           [| float_format_str ; v |]
                           "printf" env.builder)
 
-    | A.Call(A.NaiveId("concat"), elist) ->
-        let (env' , v1) = expr env (List.hd elist) in
-        let (env'', v2) = expr env' (List.hd (List.tl elist)) in
+    | A.Call(A.NaiveId("concat"), [c1; c2]) ->
+	let (env', v1) = expr env c1 in
+	let (env'', v2) = expr env' c2 in
+	(env'', L.build_call str_concat_func [| v1; v2 |] "" env''.builder)
+    
+    | A.Call(A.NaiveId("parallel"), [f; pool; nthread]) ->
+        let (env1, llf) = expr env f in
+        let (env2, llpool) = expr env1 pool in
+        let (env3, llnthread) = expr env2 nthread in
 
-        let v_of_expr e' = snd (expr env e') in
-        let v_list = List.map v_of_expr elist in
-        let v_arr = Array.of_list v_list in
-        (env, L.build_call str_concat_func v_arr "" env.builder)
+        let etype = L.element_type (L.type_of llpool) in
+        let size = L.size_of etype in
+        let i32_size = L.build_intcast size i32_t "" env3.builder in
+
+        let fcast = L.build_bitcast llf subroutine_t "" env3.builder in
+        let poolcast = L.build_bitcast llpool (L.pointer_type voidstar_t) "" env3.builder in
+        let v_arr = [| fcast; poolcast; i32_size; llnthread |]  in
+        (env3, L.build_call parallel_func v_arr "" env3.builder)
 
     | A.Call (f, act) ->
         let fptr = lookup env f in

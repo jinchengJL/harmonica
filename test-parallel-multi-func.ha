@@ -1,29 +1,37 @@
-int f1(int a){
-    return a+1
+int i = 0;
+
+struct p {
+   int a;
+   int b;
+   <bool int> c;
+};
+
+void f1(int x){
+     printi(x);
 }
 
-int f2(int b){
-    return b+2
+void f2(p x) {
+  printi(x.a);
 }
 
-int f3(int c){
-    return c+3
-}
+int main() {
+    int a = 3;
+    int b = 4;
+    int c = 5;
+    int d = 6;
 
-int f4(int d){
-    return d+4
-}
+    parallel(f1, [a, b, c, d], 4);
 
-int main(){
-    int a = 1
-    int b = 2
-    int c = 3
-    int d = 4
+    p e;
+    p f;
+    p g;
+    p h;
 
-    parallel([f1,f2,f3,f4],[a,b,c,d],4)
-    parallel([f1,f2,f3,f4],[a,b,c,d])
-    parallel(f1,[a,b,c,d])
-    parallel(f1,[a,b,c,d],4)
-    parallel([f1,f2,f3,f4],[a,b,c,d],2)
+    e.a = 31;
+    f.a = 41;
+    g.a = 51;
+    h.a = 61;
+
+    parallel(f2, [e,f,g,h], 4);
 }
 

@@ -48,9 +48,9 @@ let check (global_stmts, functions) =
   (* Structural type equality *)
   let rec typ_equal t1 t2 = 
     (match (t1, t2) with
-       (DataType(p1), DataType(p2)) -> if p1 = Unknown || p2 = Unknown
-                                       then true
-                                       else p1 = p2
+       (DataType(Unknown), _) -> true
+     | (_, DataType(Unknown)) -> true
+     | (DataType(p1), DataType(p2)) -> p1 = p2
      | (Tuple(tlist1), Tuple(tlist2)) -> 
         List.for_all2 typ_equal tlist1 tlist2
      | (List(t1'), List(t2')) -> typ_equal t1' t2'
@@ -70,7 +70,7 @@ let check (global_stmts, functions) =
   in
 
   (**** Checking Functions Definitions ****)
-  let builtins = ["print"; "printb"; "printf"; "printi"; "printendl"; "concat"] in
+  let builtins = ["print"; "printb"; "printf"; "printi"; "printendl"; "concat"; "parallel"] in
   let builtin_duplicates = List.filter (fun fname -> List.mem fname builtins)
                                        (List.map (fun fd -> fd.fname) functions) in
   if List.length builtin_duplicates > 0
@@ -90,8 +90,8 @@ let check (global_stmts, functions) =
                     ("printf", FuncType([DataType(Void); DataType(Float)]));
                     ("printi", FuncType([DataType(Void); DataType(Int)]));
                     ("printendl", FuncType([DataType(Void); DataType(String)]));
-                    ("concat", FuncType([DataType(String); DataType(String); DataType(String)]))
-                    (* TODO: built-in multi argument functions, like concat*)
+                    ("concat", FuncType([DataType(String); DataType(String); DataType(String)]));
+		    ("parallel", FuncType([DataType(Int); FuncType([DataType(Unknown); DataType(Unknown)]); List(DataType(Unknown)); DataType(Int)]))
                     ]
   in
 
