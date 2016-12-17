@@ -36,9 +36,8 @@ let translate (global_stmts, functions) =
   and i8_t   = L.i8_type     context
   and i1_t   = L.i1_type     context
   and dbl_t  = L.double_type context
-  and void_t = L.void_type   context
-  and string_t = L.pointer_type (L.i8_type context)
-  in
+  and void_t = L.void_type   context in
+  let string_t = L.pointer_type i8_t in
 
   (* user-defined types *)
   let user_types = List.fold_left
@@ -348,9 +347,12 @@ let translate (global_stmts, functions) =
                           [| float_format_str ; v |]
                           "printf" env.builder)
 
-    | A.Call(A.NaiveId("concat"), e) ->
+    | A.Call(A.NaiveId("concat"), elist) ->
+        let (env' , v1) = expr env (List.hd elist) in
+        let (env'', v2) = expr env' (List.hd (List.tl elist)) in
+
         let v_of_expr e' = snd (expr env e') in
-        let v_list = List.map v_of_expr e in
+        let v_list = List.map v_of_expr elist in
         let v_arr = Array.of_list v_list in
         (env, L.build_call str_concat_func v_arr "" env.builder)
 
@@ -543,4 +545,9 @@ let translate (global_stmts, functions) =
   in
 
   List.iter build_function_body functions;
+
+  let llmem = L.MemoryBuffer.of_file "bindings.bc" in
+  let llm = Llvm_bitreader.parse_bitcode context llmem in
+  ignore (Llvm_linker.link_modules the_module llm);
+
   the_module

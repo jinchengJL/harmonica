@@ -6,8 +6,9 @@
 
 .PHONY : harmonica.native
 
-harmonica.native :
-	ocamlbuild -use-ocamlfind -pkgs llvm,llvm.analysis -cflags -w,+a-4,-annot \
+harmonica.native : bindings.c scanner.mll parser.mly ast.ml semant.ml
+	clang -c -pthread -emit-llvm bindings.c
+	ocamlbuild -use-ocamlfind -pkgs llvm,llvm.analysis,llvm.bitreader,llvm.linker -cflags -w,+a-4,-annot \
 		harmonica.native
 
 # "make clean" removes all generated files

@@ -89,7 +89,8 @@ let check (global_stmts, functions) =
                     ("printb", FuncType([DataType(Void); DataType(Bool)]));
                     ("printf", FuncType([DataType(Void); DataType(Float)]));
                     ("printi", FuncType([DataType(Void); DataType(Int)]));
-                    ("printendl", FuncType([DataType(Void); DataType(String)]))
+                    ("printendl", FuncType([DataType(Void); DataType(String)]));
+                    ("concat", FuncType([DataType(Void); DataType(String); DataType(String)]))
                     (* TODO: built-in multi argument functions, like concat*)
                     ]
   in
@@ -123,9 +124,9 @@ let check (global_stmts, functions) =
     | IndexId(id, e) ->
         let container_type = resolve_user_type (type_of_identifier env id) user_types in
       (match container_type with
-            List(t) -> (match expr env e with DataType(Int) -> t | _ -> raise (Failure "WTF. Must be int.")) 
-          | _ -> raise (Failure "WTF. Must be list.")
-      ) 
+         List(t) -> (match expr env e with DataType(Int) -> t | _ -> raise (Failure "WTF. Must be int."))
+       | _ -> raise (Failure "WTF. Must be list.")
+      )
 
   (* Return the type of an expression or throw an exception *)
   and expr env = function
