@@ -120,6 +120,10 @@ let translate (global_stmts, functions) =
   let subroutine_t = L.pointer_type (L.function_type voidstar_t [| voidstar_t |] ) in  
   let parallel_t = L.function_type i32_t [| subroutine_t; L.pointer_type voidstar_t; i32_t; i32_t |] in
   let parallel_func = L.declare_function "parallel" parallel_t the_module in
+	
+ 
+  let malloc_t = L.function_type voidstar_t [| i32_t |] in
+  let malloc_func = L.declare_function "malloc" malloc_t the_module in
 
   (* Define each function (arguments and return type) so we can call it *)
   let function_decls =
@@ -370,6 +374,16 @@ let translate (global_stmts, functions) =
         let poolcast = L.build_bitcast llpool (L.pointer_type voidstar_t) "" env3.builder in
         let v_arr = [| fcast; poolcast; i32_size; llnthread |]  in
         (env3, L.build_call parallel_func v_arr "" env3.builder)
+
+    | A.Call(A.NaiveId("free"), [e]) ->
+	let (env1, e') = expr env e in
+	let ept = L.build_bitcast e' voidstar_t "" env1.builder in
+	(env1, L.build_free ept env1.builder)
+
+    | A.Call(A.NaiveId("malloc"), [e]) ->
+        let (env1, e') = expr env e in
+	(env1, L.build_array_malloc i8_t e' "" env1.builder)
+
 
     | A.Call (f, act) ->
         let fptr = lookup env f in

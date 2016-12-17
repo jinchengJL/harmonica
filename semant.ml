@@ -70,7 +70,7 @@ let check (global_stmts, functions) =
   in
 
   (**** Checking Functions Definitions ****)
-  let builtins = ["print"; "printb"; "printf"; "printi"; "printendl"; "concat"; "parallel"] in
+  let builtins = ["print"; "printb"; "printf"; "printi"; "printendl"; "concat"; "parallel"; "free"; "malloc"] in
   let builtin_duplicates = List.filter (fun fname -> List.mem fname builtins)
                                        (List.map (fun fd -> fd.fname) functions) in
   if List.length builtin_duplicates > 0
@@ -91,8 +91,10 @@ let check (global_stmts, functions) =
                     ("printi", FuncType([DataType(Void); DataType(Int)]));
                     ("printendl", FuncType([DataType(Void); DataType(String)]));
                     ("concat", FuncType([DataType(String); DataType(String); DataType(String)]));
-		    ("parallel", FuncType([DataType(Int); FuncType([DataType(Unknown); DataType(Unknown)]); List(DataType(Unknown)); DataType(Int)]))
-                    ]
+		    ("parallel", FuncType([DataType(Int); FuncType([DataType(Unknown); DataType(Unknown)]); List(DataType(Unknown)); DataType(Int)]));
+                    ("free", FuncType([DataType(Void); List(DataType(Unknown))]));
+			("malloc", FuncType([List(DataType(Unknown)); DataType(Int)]))    
+		]
   in
 
   let get_functype fdecl = FuncType(fdecl.typ :: (List.map fst fdecl.formals)) in
@@ -302,4 +304,5 @@ let check (global_stmts, functions) =
     ignore (stmt fenv (Block func.body))
 
   in
+
   List.iter (check_function global_env) functions
