@@ -18,6 +18,6 @@ if __name__ == "__main__":
                 for j in range(i+1, len(lines)):
                     lines[j] = lines[j].replace(orig, new)
         for line in lines:
-            if line.startswith('alias'):
+            if line.startswith(KEYWORD):
                 continue
             print line,
