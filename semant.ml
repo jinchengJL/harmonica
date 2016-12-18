@@ -120,7 +120,7 @@ let check (global_stmts, functions) =
 
   (* NOTE: inner-scope variable overrides outer-scope variable with same name *)
   let rec type_of_identifier env = function
-      NaiveId(s) -> 
+	NaiveId(s) -> 
       let t = 
         (try StringMap.find s (env.locals)
          with Not_found -> (
@@ -132,14 +132,17 @@ let check (global_stmts, functions) =
        let container_type = resolve_user_type (type_of_identifier env id) user_types in
        (match container_type with
           Struct(_, blist) -> 
-          let (t, _) = List.find (fun (_, n') -> n' = n) blist in t
+          let (t, _) = List.find (fun (_, n') -> n' = n) blist in
+          resolve_user_type t user_types
         | _ -> raise (Failure (string_of_id id  ^ " is not a struct type")))
     | IndexId(id, e) ->
         let container_type = resolve_user_type (type_of_identifier env id) user_types in
       (match container_type with
-         List(t) -> (match expr env e with DataType(Int) -> t | _ -> raise (Failure "WTF. Must be int."))
+         List(t) -> (match expr env e with DataType(Int) ->
+           resolve_user_type t user_types
+     | _ -> raise (Failure "WTF. Must be int."))
        | _ -> raise (Failure "WTF. Must be list.")
-      )
+      ) 
 
   (* Return the type of an expression or throw an exception *)
   and expr env = function
@@ -206,7 +209,9 @@ let check (global_stmts, functions) =
        let ftype = type_of_identifier env fname in
        (match ftype with
           FuncType(tlist) ->
-          let formals = List.tl tlist in
+	  let get_tp tp = resolve_user_type tp user_types in
+          let resolved_formals = List.map get_tp (List.tl tlist) in
+          let formals = resolved_formals in
           let ret = List.hd tlist in
           if List.length actuals != List.length formals then
             raise (Failure ("expecting " ^ 
