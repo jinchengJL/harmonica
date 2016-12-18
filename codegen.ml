@@ -45,7 +45,7 @@ let translate (global_stmts, functions) =
                      (fun map -> function
                          A.Typedef(t, s) -> StringMap.add s t map
                        | _ -> map)
-                     StringMap.empty
+                     (StringMap.add "mutex" S.mutex_t StringMap.empty)
                      global_stmts
   in
 
@@ -122,7 +122,20 @@ let translate (global_stmts, functions) =
   let subroutine_t = L.pointer_type (L.function_type voidstar_t [| voidstar_t |] ) in  
   let parallel_t = L.function_type i32_t [| subroutine_t; L.pointer_type voidstar_t; i32_t; i32_t |] in
   let parallel_func = L.declare_function "parallel" parallel_t the_module in
-	
+
+  let mutex_t = voidstar_t in
+  let mutex_create_t = L.function_type mutex_t [||] in
+  let mutex_create_func = L.declare_function "mutex_create" mutex_create_t the_module in
+  
+  let mutex_lock_t = L.function_type i32_t [| mutex_t |] in
+  let mutex_lock_func = L.declare_function "lock" mutex_lock_t the_module in
+
+  let mutex_unlock_t = L.function_type i32_t [| mutex_t |] in
+  let mutex_unlock_func = L.declare_function "unlock" mutex_unlock_t the_module in
+
+  let mutex_destroy_t = L.function_type i32_t [| mutex_t |] in
+  let mutex_destroy_func = L.declare_function "destroy" mutex_destroy_t the_module in  
+
   (* Define each function (arguments and return type) so we can call it *)
   let function_decls =
     let function_decl m fdecl =
@@ -381,9 +394,26 @@ let translate (global_stmts, functions) =
        (env1, L.build_free ept env1.builder)
 
     | A.Call(A.NaiveId("malloc"), [e]) ->
-        let (env1, e') = expr env e in
-	(env1, L.build_array_malloc i8_t e' "" env1.builder)
+       let (env1, e') = expr env e in
+       (env1, L.build_array_malloc i8_t e' "" env1.builder)
 
+    | A.Call(A.NaiveId("mutex_create"), _) ->
+       (env, L.build_call mutex_create_func [||] "" env.builder)
+
+    | A.Call(A.NaiveId("mutex_lock"), [e]) ->
+       let (env1, e') = expr env e in
+       let mut = L.build_bitcast e' voidstar_t "" env1.builder in
+       (env1, L.build_call mutex_lock_func [|mut|] "" env1.builder)
+
+    | A.Call(A.NaiveId("mutex_unlock"), [e]) ->
+       let (env1, e') = expr env e in
+       let mut = L.build_bitcast e' voidstar_t "" env1.builder in
+       (env1, L.build_call mutex_unlock_func [|mut|] "" env1.builder)
+
+    | A.Call(A.NaiveId("mutex_destroy"), [e]) ->
+       let (env1, e') = expr env e in
+       let mut = L.build_bitcast e' voidstar_t "" env1.builder in
+       (env1, L.build_call mutex_destroy_func [|mut|] "" env1.builder)
 
     | A.Call (f, act) ->
         let fptr = lookup env f in

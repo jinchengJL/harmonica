@@ -61,7 +61,7 @@ tuple_typ_list:
   | tuple_typ_list typ { $2 :: $1 }
 
 func_typ_list:
-    typ typ { $2 :: [$1] }
+    typ { [$1] }
   | func_typ_list typ { $2 :: $1 }
 
 primitive:

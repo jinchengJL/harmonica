@@ -17,15 +17,18 @@ let rec resolve_user_type usert utypes =
      UserType(s) -> (try resolve_user_type (StringMap.find s utypes) utypes
                      with Not_found -> raise (Failure ("undefined type " ^ s)))
    | _ -> usert)
+
+let mutex_t = Struct ("mutex", [])
     
 let check (global_stmts, functions) =
 
   (* User-defined types *)
+
   let user_types = List.fold_left
                      (fun map -> function
                          Typedef(t, s) -> StringMap.add s t map
                        | _ -> map)
-                     StringMap.empty
+                     (StringMap.add "mutex" mutex_t StringMap.empty)
                      global_stmts
   in
 
@@ -70,7 +73,7 @@ let check (global_stmts, functions) =
   in
 
   (**** Checking Functions Definitions ****)
-  let builtins = ["print"; "printb"; "printf"; "printi"; "printendl"; "concat"; "parallel"; "free"; "malloc"] in
+  let builtins = ["print"; "printb"; "printf"; "printi"; "printendl"; "concat"; "parallel"; "free"; "malloc"; "mutex_create"; "mutex_destroy"; "mutex_lock"; "mutex_unlock"] in
   let builtin_duplicates = List.filter (fun fname -> List.mem fname builtins)
                                        (List.map (fun fd -> fd.fname) functions) in
   if List.length builtin_duplicates > 0
@@ -91,9 +94,13 @@ let check (global_stmts, functions) =
                     ("printi", FuncType([DataType(Void); DataType(Int)]));
                     ("printendl", FuncType([DataType(Void); DataType(String)]));
                     ("concat", FuncType([DataType(String); DataType(String); DataType(String)]));
-		    ("parallel", FuncType([DataType(Int); FuncType([DataType(Unknown); DataType(Unknown)]); List(DataType(Unknown)); DataType(Int)]));
+		            ("parallel", FuncType([DataType(Int); FuncType([DataType(Unknown); DataType(Unknown)]); List(DataType(Unknown)); DataType(Int)]));
                     ("free", FuncType([DataType(Void); List(DataType(Unknown))]));
-			("malloc", FuncType([List(DataType(Unknown)); DataType(Int)]))    
+			        ("malloc", FuncType([List(DataType(Unknown)); DataType(Int)]));
+                    ("mutex_create", FuncType([mutex_t]));
+                    ("mutex_lock", FuncType([DataType(Int); mutex_t]));
+                    ("mutex_unlock", FuncType([DataType(Int); mutex_t]));
+                    ("mutex_destroy", FuncType([DataType(Int); mutex_t]))
 		]
   in
 
@@ -113,10 +120,13 @@ let check (global_stmts, functions) =
   (* NOTE: inner-scope variable overrides outer-scope variable with same name *)
   let rec type_of_identifier env = function
       NaiveId(s) -> 
-      (try StringMap.find s (env.locals)
-       with Not_found -> (
-         try StringMap.find s (env.externals)
-         with Not_found -> raise (Failure ("undeclared identifier " ^ s))))
+      let t = 
+        (try StringMap.find s (env.locals)
+         with Not_found -> (
+           try StringMap.find s (env.externals)
+           with Not_found -> raise (Failure ("undeclared identifier " ^ s))))
+      in 
+      resolve_user_type t user_types
     | MemberId(id, n) -> 
        let container_type = resolve_user_type (type_of_identifier env id) user_types in
        (match container_type with

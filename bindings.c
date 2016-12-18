@@ -40,3 +40,48 @@ int parallel(void *(*start_routine) (void *), void *arg, int asize, int nthreads
   
   return err;
 }
+
+void* mutex_create(void) {
+	pthread_mutex_t* mtx = (pthread_mutex_t *) malloc(sizeof(pthread_mutex_t));
+	if (mtx == NULL) {
+		perror("mutex allocation failed: ");
+	}
+	int err = pthread_mutex_init(mtx, NULL);
+	
+	if (err != 0) {
+		perror("mutext init failed");
+		free(mtx);
+		return NULL;
+	}
+
+	return mtx;
+}
+
+int lock(void* mtx) {
+	int err = pthread_mutex_lock((pthread_mutex_t *) mtx);
+    printf("locked\n");
+	if (err != 0) {
+		perror("mutex lock failed");
+		return err;
+	}
+	return 0;
+}
+
+int unlock(void* mtx) {
+    printf("unlocking\n");
+	int err = pthread_mutex_unlock((pthread_mutex_t *) mtx);
+	if (err != 0) {
+		perror("mutex unlock failed");
+		return err;
+	}
+	return 0;
+}
+
+int destroy(void* mtx) {
+	int err = pthread_mutex_destroy((pthread_mutex_t *) mtx);
+	if (err != 0) {
+		perror("mutex unlock failed");
+		return err;
+	}
+	return 0;
+}
