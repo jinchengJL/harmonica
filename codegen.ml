@@ -375,8 +375,10 @@ let translate (global_stmts, functions) =
 	(env'', L.build_call str_concat_func [| v1; v2 |] "" env''.builder)
 
     | A.Call(A.NaiveId("sizeof"), [e]) -> 
-	let (env', v1) = expr env e in
-        (env', L.size_of (L.type_of v1 ))
+       let (env', v1) = expr env e in
+       let i64_size = L.size_of (L.type_of v1 )in
+       let i32_size = L.build_intcast i64_size i32_t "" env'.builder in
+        (env', i32_size)
     
     | A.Call(A.NaiveId("parallel"), [f; pool; nthread]) ->
         let (env1, llf) = expr env f in
@@ -577,7 +579,7 @@ let translate (global_stmts, functions) =
                let struct_t = L.element_type struct_ptr_t in
                debug ("struct_t = "  ^ L.string_of_lltype struct_t);
                let struct_ptr = L.build_alloca struct_ptr_t "" env.builder in
-               let struct_val = L.build_alloca struct_t "" env.builder in
+               let struct_val = L.build_malloc struct_t "" env.builder in
                ignore (llstore struct_val struct_ptr env.builder);
                struct_ptr
              | _ -> L.build_alloca (ltype_of_typ t) id env.builder

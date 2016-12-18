@@ -301,10 +301,11 @@ let check (global_stmts, functions) =
         ignore (check_block benv sl);
         senv
       | Expr e -> ignore (expr senv e); senv
-      | Return e -> let t = expr senv e in 
-                    if typ_equal t func.typ then senv else
+      | Return e -> let t = expr senv e in
+                    let expected = resolve_user_type func.typ user_types in
+                    if typ_equal t expected then senv else
          raise (Failure ("return gives " ^ string_of_typ t ^ " expected " ^
-                         string_of_typ func.typ ^ " in " ^ string_of_expr e))
+                         string_of_typ expected ^ " in " ^ string_of_expr e))
       | If(p, b1, b2) -> check_bool_expr senv p; 
                          ignore (stmt senv b1);
                          ignore (stmt senv b2);
