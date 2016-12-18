@@ -15,4 +15,7 @@ l2[3] = 75;
   printi(l2[1]);
   
   printi(l2[-1]);
+
+ printi(sizeof(l2));
+
 }

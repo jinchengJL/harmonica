@@ -73,7 +73,7 @@ let check (global_stmts, functions) =
   in
 
   (**** Checking Functions Definitions ****)
-  let builtins = ["print"; "printb"; "printf"; "printi"; "printendl"; "concat"; "parallel"; "free"; "malloc"; "mutex_create"; "mutex_destroy"; "mutex_lock"; "mutex_unlock"] in
+  let builtins = ["print"; "printb"; "printf"; "printi"; "printendl"; "concat"; "parallel"; "free"; "malloc"; "mutex_create"; "mutex_destroy"; "mutex_lock"; "mutex_unlock" ; "sizeof" ] in
   let builtin_duplicates = List.filter (fun fname -> List.mem fname builtins)
                                        (List.map (fun fd -> fd.fname) functions) in
   if List.length builtin_duplicates > 0
@@ -94,13 +94,14 @@ let check (global_stmts, functions) =
                     ("printi", FuncType([DataType(Void); DataType(Int)]));
                     ("printendl", FuncType([DataType(Void); DataType(String)]));
                     ("concat", FuncType([DataType(String); DataType(String); DataType(String)]));
-		            ("parallel", FuncType([DataType(Int); FuncType([DataType(Unknown); DataType(Unknown)]); List(DataType(Unknown)); DataType(Int)]));
+		    ("parallel", FuncType([DataType(Int); FuncType([DataType(Unknown); DataType(Unknown)]); List(DataType(Unknown)); DataType(Int)]));
                     ("free", FuncType([DataType(Void); List(DataType(Unknown))]));
-			        ("malloc", FuncType([List(DataType(Unknown)); DataType(Int)]));
+		    ("malloc", FuncType([List(DataType(Unknown)); DataType(Int)]));
                     ("mutex_create", FuncType([mutex_t]));
                     ("mutex_lock", FuncType([DataType(Int); mutex_t]));
                     ("mutex_unlock", FuncType([DataType(Int); mutex_t]));
-                    ("mutex_destroy", FuncType([DataType(Int); mutex_t]))
+                    ("mutex_destroy", FuncType([DataType(Int); mutex_t]));
+		    ("sizeof",  FuncType([DataType(Int); DataType(Unknown) ]))
 		]
   in
 

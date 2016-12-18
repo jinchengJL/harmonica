@@ -373,6 +373,10 @@ let translate (global_stmts, functions) =
 	let (env', v1) = expr env c1 in
 	let (env'', v2) = expr env' c2 in
 	(env'', L.build_call str_concat_func [| v1; v2 |] "" env''.builder)
+
+    | A.Call(A.NaiveId("sizeof"), [e]) -> 
+	let (env', v1) = expr env e in
+        (env', L.size_of (L.type_of v1 ))
     
     | A.Call(A.NaiveId("parallel"), [f; pool; nthread]) ->
         let (env1, llf) = expr env f in
@@ -441,6 +445,8 @@ let translate (global_stmts, functions) =
     | A.DataType(A.String) -> L.const_string context "" 
     | A.List(_) -> L.const_null (ltype_of_typ t)
     | A.Struct(_, _) -> L.const_null (ltype_of_typ t)
+       (* let tlist = List.map fst blist in  *)
+       (* L.const_named_struct (ltype_of_typ t)  *)
        (* let tlist = List.map fst blist in  *)
        (* L.const_named_struct (ltype_of_typ t)  *)
        (*                      (Array.of_list (List.map init_of_type tlist)) *)
