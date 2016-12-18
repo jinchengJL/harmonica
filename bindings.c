@@ -20,13 +20,14 @@ int parallel(void *(*start_routine) (void *), void *arg, int asize, int nthreads
   int i;
   for (i = 0; i < nthreads; i ++) {
     void *addr = (void *) (((char *) arg) + i * asize);
-    int err = pthread_create(&thread[i], NULL, start_routine, *(void **) addr);
+    int err = 0;
+    err = pthread_create(&thread[i], NULL, start_routine, *(void **) addr);
     if (err != 0) {
       exit(err);
     }
   }
   
-  int err;
+  int err = 0;
   for (i = 0; i < nthreads; i++) {
     err = pthread_join(thread[i], NULL);
     if (err != 0) {

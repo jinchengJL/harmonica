@@ -72,12 +72,14 @@ let translate (global_stmts, functions) =
     | A.List(t) -> L.pointer_type (ltype_of_typ t)
     (* TODO: channels *)
     | A.Struct(name, blist) ->
-      (try StringMap.find name !typ_cache
-       with Not_found -> 
-       let struct_t = L.named_struct_type context name in
-       L.struct_set_body struct_t (Array.of_list (List.map ltype_of_typ (List.map fst blist))) false;
-       typ_cache := StringMap.add name struct_t !typ_cache;
-       struct_t)
+       let t = 
+         (try StringMap.find name !typ_cache
+          with Not_found -> 
+            let struct_t = L.named_struct_type context name in
+            L.struct_set_body struct_t (Array.of_list (List.map ltype_of_typ (List.map fst blist))) false;
+            typ_cache := StringMap.add name struct_t !typ_cache;
+            struct_t) in
+       L.pointer_type t
     | A.UserType(_) as t -> let t' = S.resolve_user_type t user_types in
                             ltype_of_typ t'
     | A.FuncType(tlist) ->
@@ -121,10 +123,6 @@ let translate (global_stmts, functions) =
   let parallel_t = L.function_type i32_t [| subroutine_t; L.pointer_type voidstar_t; i32_t; i32_t |] in
   let parallel_func = L.declare_function "parallel" parallel_t the_module in
 	
- 
-  let malloc_t = L.function_type voidstar_t [| i32_t |] in
-  let malloc_func = L.declare_function "malloc" malloc_t the_module in
-
   (* Define each function (arguments and return type) so we can call it *)
   let function_decls =
     let function_decl m fdecl =
@@ -147,7 +145,7 @@ let translate (global_stmts, functions) =
   let llstore lval laddr builder =
     let ptr = L.build_pointercast laddr (L.pointer_type (L.type_of lval)) "" builder in
     let store_inst = (L.build_store lval ptr builder) in
-    debug ("store instruction = " ^ (L.string_of_llvalue store_inst));
+    debug ((L.string_of_llvalue store_inst));
     ()
   in
 
@@ -171,8 +169,10 @@ let translate (global_stmts, functions) =
                         then 0 
                         else 1 + find_index_of field_name tl
         in
-        let container_addr = lookup env id in
-        let container = L.build_load container_addr "" env.builder in 
+        let container_pp = lookup env id in
+        let container_addr = L.build_load container_pp "" env.builder in
+        let container = L.build_load container_addr "" env.builder in
+        debug ("container: " ^ L.string_of_llvalue container);
         let container_tname_opt = L.struct_name (L.type_of container) in
         (match container_tname_opt with
           None -> raise (Failure ("expected struct, found tuple: " ^ A.string_of_id id))
@@ -246,7 +246,7 @@ let translate (global_stmts, functions) =
           (env, ptr)
     | A.Noexpr -> (env, L.const_int i32_t 0)
     | A.Id id -> 
-        (env, L.build_load (lookup env id) "" env.builder)
+       (env, L.build_load (lookup env id) "" env.builder)
     | A.Binop (e1, op, e2) ->
         let (env, e1') = expr env e1 in
         let (env, e2') = expr env e2 in
@@ -376,9 +376,9 @@ let translate (global_stmts, functions) =
         (env3, L.build_call parallel_func v_arr "" env3.builder)
 
     | A.Call(A.NaiveId("free"), [e]) ->
-	let (env1, e') = expr env e in
-	let ept = L.build_bitcast e' voidstar_t "" env1.builder in
-	(env1, L.build_free ept env1.builder)
+       let (env1, e') = expr env e in
+       let ept = L.build_bitcast e' voidstar_t "" env1.builder in
+       (env1, L.build_free ept env1.builder)
 
     | A.Call(A.NaiveId("malloc"), [e]) ->
         let (env1, e') = expr env e in
@@ -410,10 +410,10 @@ let translate (global_stmts, functions) =
     | A.DataType(A.Float) -> L.const_float (ltype_of_typ t) 0.0 
     | A.DataType(A.String) -> L.const_string context "" 
     | A.List(_) -> L.const_null (ltype_of_typ t)
-    | A.Struct(_, blist) -> 
-       let tlist = List.map fst blist in 
-       L.const_named_struct (ltype_of_typ t) 
-                            (Array.of_list (List.map init_of_type tlist))
+    | A.Struct(_, _) -> L.const_null (ltype_of_typ t)
+       (* let tlist = List.map fst blist in  *)
+       (* L.const_named_struct (ltype_of_typ t)  *)
+       (*                      (Array.of_list (List.map init_of_type tlist)) *)
     | A.UserType(_) -> let t' = S.resolve_user_type t user_types in
                        init_of_type t'
     | _ -> raise (Failure ("Global variable with unsupported type: " ^ (A.string_of_typ t)))
@@ -458,7 +458,6 @@ let translate (global_stmts, functions) =
 
   (* Fill in the body of the given function *)
   let build_function_body fdecl =
-    debug ("building function " ^ fdecl.A.fname);
     let (the_function, _) = StringMap.find fdecl.A.fname function_decls in
     let fbuilder = L.builder_at_end context (L.entry_block the_function) in
 
@@ -533,9 +532,21 @@ let translate (global_stmts, functions) =
 
       | A.Local (vd) ->
          begin match vd with
-           A.Bind(t, id) -> 
-            let local_var = L.build_alloca (ltype_of_typ t) id env.builder in
-            {env with locals = StringMap.add id local_var env.locals}
+           A.Bind(t, id) ->
+           let local_var = 
+             begin match (S.resolve_user_type t user_types) with
+               A.Struct(_, _) -> 
+               let struct_ptr_t = ltype_of_typ t in
+               debug ("struct_ptr_t = " ^ L.string_of_lltype struct_ptr_t);
+               let struct_t = L.element_type struct_ptr_t in
+               debug ("struct_t = "  ^ L.string_of_lltype struct_t);
+               let struct_ptr = L.build_alloca struct_ptr_t "" env.builder in
+               let struct_val = L.build_alloca struct_t "" env.builder in
+               ignore (llstore struct_val struct_ptr env.builder);
+               struct_ptr
+             | _ -> L.build_alloca (ltype_of_typ t) id env.builder
+             end in
+           {env with locals = StringMap.add id local_var env.locals}
          | A.Binass(t, id, e) -> 
             let local_var =  L.build_alloca (ltype_of_typ t) id env.builder in
             let (env, e') = expr env e in
@@ -569,7 +580,6 @@ let translate (global_stmts, functions) =
     add_terminal env (match fdecl.A.typ with
                         A.DataType(A.Void) -> L.build_ret_void
                       | t -> L.build_ret (init_of_type t));
-    debug ("done building " ^ fdecl.A.fname);
     ()
   in
 
