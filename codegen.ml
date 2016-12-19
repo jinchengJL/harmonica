@@ -427,7 +427,6 @@ let translate (global_stmts, functions) =
         let fdef = L.build_load fptr "" env.builder in
         debug ("fdef = " ^ L.string_of_llvalue fdef);
         debug ("fdef type = " ^ L.string_of_lltype (L.type_of fdef));
-        (* let (fdef, fdecl) = StringMap.find f function_decls in *)
         let (env, actuals) = List.fold_right
                               (fun e (env, values) ->
                                 let (env', v) = expr env e in
@@ -435,7 +434,6 @@ let translate (global_stmts, functions) =
                               act
                               (env, [])
                               in
-        (* let result = A.string_of_id f ^ "_result" in *)
         (env, L.build_call fdef (Array.of_list actuals) "" env.builder)
   in
 
@@ -447,11 +445,6 @@ let translate (global_stmts, functions) =
     | A.DataType(A.String) -> L.const_string context "" 
     | A.List(_) -> L.const_null (ltype_of_typ t)
     | A.Struct(_, _) -> L.const_null (ltype_of_typ t)
-       (* let tlist = List.map fst blist in  *)
-       (* L.const_named_struct (ltype_of_typ t)  *)
-       (* let tlist = List.map fst blist in  *)
-       (* L.const_named_struct (ltype_of_typ t)  *)
-       (*                      (Array.of_list (List.map init_of_type tlist)) *)
     | A.UserType(_) -> let t' = S.resolve_user_type t user_types in
                        init_of_type t'
     | _ -> raise (Failure ("Global variable with unsupported type: " ^ (A.string_of_typ t)))

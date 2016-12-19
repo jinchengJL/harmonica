@@ -1,1 +1,1 @@
-Fatal error: exception Failure("illegal actual argument found Bool expected Int in Id(b)")
+Fatal error: exception Failure("illegal actual argument in call to f: found Bool, expected Int in Id(b)")

@@ -55,5 +55,5 @@ void vector_T_remove(vector_T v, int i) {
 
 void vector_T_destroy(vector_T v) {
   free(v.elements);
-  #free(v);
+  free(v);
 }

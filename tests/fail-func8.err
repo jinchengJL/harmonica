@@ -1,1 +1,1 @@
-Fatal error: exception Failure("illegal actual argument found Void expected Bool in Call(bar, )")
+Fatal error: exception Failure("illegal actual argument in call to foo: found Void, expected Bool in Call(bar, )")

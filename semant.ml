@@ -51,8 +51,8 @@ let check (global_stmts, functions) =
   (* Structural type equality *)
   let rec typ_equal t1 t2 = 
     (match (t1, t2) with
-       (DataType(Unknown), _) -> true
-     | (_, DataType(Unknown)) -> true
+       (Any, _) -> true
+     | (_, Any) -> true
      | (DataType(p1), DataType(p2)) -> p1 = p2
      | (Tuple(tlist1), Tuple(tlist2)) -> 
         List.for_all2 typ_equal tlist1 tlist2
@@ -94,14 +94,14 @@ let check (global_stmts, functions) =
                     ("printi", FuncType([DataType(Void); DataType(Int)]));
                     ("printendl", FuncType([DataType(Void); DataType(String)]));
                     ("concat", FuncType([DataType(String); DataType(String); DataType(String)]));
-		    ("parallel", FuncType([DataType(Int); FuncType([DataType(Unknown); DataType(Unknown)]); List(DataType(Unknown)); DataType(Int)]));
-                    ("free", FuncType([DataType(Void); List(DataType(Unknown))]));
-		    ("malloc", FuncType([List(DataType(Unknown)); DataType(Int)]));
+                    ("parallel", FuncType([DataType(Int); FuncType([Any; Any]); List(Any); DataType(Int)]));
+                    ("free", FuncType([DataType(Void); List(Any)]));
+		    ("malloc", FuncType([List(Any); DataType(Int)]));
                     ("mutex_create", FuncType([mutex_t]));
                     ("mutex_lock", FuncType([DataType(Int); mutex_t]));
                     ("mutex_unlock", FuncType([DataType(Int); mutex_t]));
                     ("mutex_destroy", FuncType([DataType(Int); mutex_t]));
-		    ("sizeof",  FuncType([DataType(Int); DataType(Unknown) ]))
+		    ("sizeof",  FuncType([DataType(Int); Any ]))
 		]
   in
 
@@ -154,7 +154,7 @@ let check (global_stmts, functions) =
     | ListLit elist as e ->
        let tlist = List.map (expr env) elist in
        if (List.length tlist) = 0
-       then List(DataType(Unknown))
+       then List(Any)
        else
          let canon = List.hd tlist in
          if List.for_all (fun t -> t = canon) tlist
@@ -209,7 +209,7 @@ let check (global_stmts, functions) =
        let ftype = type_of_identifier env fname in
        (match ftype with
           FuncType(tlist) ->
-	  let get_tp tp = resolve_user_type tp user_types in
+          let get_tp tp = resolve_user_type tp user_types in
           let resolved_formals = List.map get_tp (List.tl tlist) in
           let formals = resolved_formals in
           let ret = List.hd tlist in
@@ -221,7 +221,7 @@ let check (global_stmts, functions) =
             List.iter2 
               (fun ft e -> 
                 let et = expr env e in
-                ignore (check_assign ft et (Failure ("illegal actual argument found " ^ string_of_typ et ^ " expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
+                ignore (check_assign ft et (Failure ("illegal actual argument in call to " ^ string_of_id fname ^ ": found " ^ string_of_typ et ^ ", expected " ^ string_of_typ ft ^ " in " ^ string_of_expr e))))
               formals actuals;
           ret
         | _ -> raise (Failure (string_of_id fname ^ " is not a function"))

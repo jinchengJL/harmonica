@@ -5,7 +5,7 @@ type op = Add | Sub | Mult | Div | Equal | Neq | Less | Leq | Greater | Geq |
 
 type uop = Neg | Not
 
-type primitive = Int | Bool | Void | String | Float | Unknown
+type primitive = Int | Bool | Void | String | Float
 
 type typ = 
     DataType of primitive 
@@ -15,6 +15,7 @@ type typ =
   | Struct of string * (typ * string) list
   | UserType of string
   | FuncType of typ list
+  | Any
 
 type id = 
     NaiveId of string
@@ -112,15 +113,14 @@ let rec string_of_typ = function
   | DataType(Void) -> "Void"
   | DataType(Float) -> "Float"
   | DataType(String) -> "String"
-  | DataType(Unknown) -> "Unknown"
+  | Any -> "Any"
   | Tuple(tlist) -> "Tuple(" ^ String.concat ", " (List.map string_of_typ tlist) ^ ")"
   | List(t) -> "List(" ^ string_of_typ t ^ ")"
-  | Struct(id, vlist) -> "Struct(" ^ id ^ ", " ^ String.concat "" (List.map string_of_bind vlist) ^ ")"
+  | Struct(id, vlist) -> "Struct(" ^ id ^ ", " ^ String.concat ", " (List.map string_of_bind vlist) ^ ")"
   | Channel(t) -> "Channel(" ^ string_of_typ t ^ ")"
   | UserType(id) -> "UserType(" ^ id ^ ")"
   | FuncType(tlist) -> "FuncType(" ^ String.concat ", " (List.map string_of_typ tlist) ^ ")"
-
-and string_of_bind (t, id) = "Bind(" ^ string_of_typ t ^ ", " ^ id ^ ")\n"
+and string_of_bind (t, id) = "Bind(" ^ string_of_typ t ^ ", " ^ id ^ ")"
 
 let string_of_vdecl = function
     Bind(t, s) -> "Bind(" ^ string_of_typ t ^ ", " ^ s ^ ")\n"
