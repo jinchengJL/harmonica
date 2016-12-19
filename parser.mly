@@ -139,7 +139,6 @@ id_expr:
   | id_expr  DOT  ID   { MemberId($1, $3) }
   | id_expr  LBRACKET expr RBRACKET { IndexId($1, $3) }
 
-
 expr:
     literals          { $1 }
   | id_expr               { Id($1) }
@@ -163,6 +162,7 @@ expr:
   | id_expr LPAREN actuals_opt RPAREN { Call($1, $3) }
   | PARALLEL LPAREN actuals_opt RPAREN { Call(NaiveId("parallel"), $3) }
   | CHAN LPAREN chan_actuals_opt RPAREN { Call(NaiveId("chan"), $3) }
+  | LAMBDA LPAREN formals_opt RPAREN typ LPAREN expr RPAREN { Lambda($5, $3, $7) }
   | LPAREN expr RPAREN { $2 }
 
 primitives:

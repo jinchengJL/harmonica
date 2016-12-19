@@ -435,63 +435,26 @@ let translate (global_stmts, functions) =
                               (env, [])
        in
        (env, L.build_call fdef (Array.of_list actuals) "" env.builder)
-  in
 
-  let rec init_of_type t = 
-    match t with
-      A.DataType(A.Int) -> L.const_int (ltype_of_typ t) 0
-    | A.DataType(A.Bool) -> L.const_int (ltype_of_typ t) 0 
-    | A.DataType(A.Float) -> L.const_float (ltype_of_typ t) 0.0 
-    | A.DataType(A.String) -> L.const_string context "" 
-    | A.List(_) -> L.const_null (ltype_of_typ t)
-    | A.Struct(_, _) -> L.const_null (ltype_of_typ t)
-    | A.UserType(_) -> let t' = S.resolve_user_type t user_types in
-                       init_of_type t'
-    | A.FuncType(_) -> L.const_null (ltype_of_typ t)
-    | _ -> raise (Failure ("Global variable with unsupported type: " ^ (A.string_of_typ t)))
-  in
-
-  (* Declare each global variable; remember its value in a map *)
-  let add_global env stmt = match stmt with
-      A.Global(vd) -> 
-      begin match vd with 
-        A.Bind(t, id) ->
-        let init = init_of_type t in
-        debug ("init = " ^ (L.string_of_llvalue init));
-        let var = L.define_global id init the_module in
-        { env with externals = StringMap.add id var env.externals }
-      | A.Binass(t, id, e) -> 
-         let init = init_of_type t in
-         debug ("init = " ^ (L.string_of_llvalue init));
-         let var = L.define_global id init the_module in
-         debug ("gvar type = " ^ (L.string_of_lltype (L.type_of var)));
-         let (env', lval) = (expr env e) in
-         ignore (llstore lval var env'.builder);
-         { env' with externals = StringMap.add id var env'.externals }
-      end
-    | _ -> env
-  in
-
-  let global_env = 
-    List.fold_left add_global
-                   { externals = 
-                       StringMap.mapi (
-                           fun name (fval, _) ->
-                           let ft = L.type_of fval in
-                           let fvar = L.define_global (name ^ "_ptr") (L.const_pointer_null ft) the_module in
-                           ignore (llstore fval fvar global_builder);
-                           debug ("fvar type = " ^ (L.string_of_lltype (L.type_of fvar)));
-                           fvar
-                         ) function_decls;
-                     locals = StringMap.empty;
-                     builder = global_builder }
-                   global_stmts
-  in
+    | A.Lambda (rt, blist, e) ->
+       let name = "lambda_func" in
+       let formal_types =
+         Array.of_list (List.map (fun (t, _) -> ltype_of_typ t) blist)
+       in
+       let ftype = L.function_type (ltype_of_typ rt) formal_types in
+       let fval  = L.define_function name ftype the_module in
+       let fdecl = {
+           A.typ   = rt;
+           A.fname = name;
+           A.formals = blist;
+           A.body = [A.Return e]
+         } in
+       build_function_body env (fval, fdecl);
+       (env, fval)
 
   (* Fill in the body of the given function *)
-  let build_function_body fdecl =
-    let (the_function, _) = StringMap.find fdecl.A.fname function_decls in
-    let fbuilder = L.builder_at_end context (L.entry_block the_function) in
+  and build_function_body fenv (fval, fdecl) =
+    let fbuilder = L.builder_at_end context (L.entry_block fval) in
 
     (* Invoke "f env.builder" if the current block doesn't already
        have a terminal (e.g., a branch). *)
@@ -504,8 +467,8 @@ let translate (global_stmts, functions) =
        the statement's successor *)
     let rec stmt env = function
         A.Block sl -> 
-        let new_bb = L.append_block context "block" the_function in
-        let cont_bb = L.append_block context "cont" the_function in
+        let new_bb = L.append_block context "block" fval in
+        let cont_bb = L.append_block context "cont" fval in
         let nenv = {
             locals = StringMap.empty;
             externals = 
@@ -531,13 +494,13 @@ let translate (global_stmts, functions) =
          env'
       | A.If (predicate, then_stmt, else_stmt) ->
          let (env', bool_val) = expr env predicate in
-         let merge_bb = L.append_block context "merge" the_function in
+         let merge_bb = L.append_block context "merge" fval in
 
-         let then_bb = L.append_block context "then" the_function in
+         let then_bb = L.append_block context "then" fval in
          add_terminal (stmt {env' with builder = (L.builder_at_end context then_bb)} then_stmt)
                       (L.build_br merge_bb);
 
-         let else_bb = L.append_block context "else" the_function in
+         let else_bb = L.append_block context "else" fval in
          add_terminal (stmt {env' with builder = (L.builder_at_end context else_bb)} else_stmt)
                       (L.build_br merge_bb);
 
@@ -545,17 +508,17 @@ let translate (global_stmts, functions) =
          {env with builder = L.builder_at_end context merge_bb}
 
       | A.While (predicate, body) ->
-         let pred_bb = L.append_block context "while" the_function in
+         let pred_bb = L.append_block context "while" fval in
          ignore (L.build_br pred_bb env.builder);
 
          let pred_builder = L.builder_at_end context pred_bb in
          let (env', bool_val) = expr {env with builder = pred_builder} predicate in
 
-         let body_bb = L.append_block context "while_body" the_function in
+         let body_bb = L.append_block context "while_body" fval in
          add_terminal (stmt {env' with builder = (L.builder_at_end context body_bb)} body)
                       (L.build_br pred_bb);
 
-         let merge_bb = L.append_block context "merge" the_function in
+         let merge_bb = L.append_block context "merge" fval in
          ignore (L.build_cond_br bool_val body_bb merge_bb pred_builder);
          {env with builder = L.builder_at_end context merge_bb}
 
@@ -599,25 +562,86 @@ let translate (global_stmts, functions) =
     in
     
     let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals
-                                  (Array.to_list (L.params the_function)) in
+                                  (Array.to_list (L.params fval)) in
+    
+    let init_env = {
+        externals = StringMap.merge (fun _ xo yo ->
+                        match xo,yo with
+                        | Some x, Some _ -> Some x
+                        | None, yo -> yo
+                        | xo, None -> xo ) fenv.locals fenv.externals;
+        locals = formals;
+        builder = fbuilder
+      } in
 
-    let env = List.fold_left stmt 
-                             { externals = global_env.externals;
-                               locals    = formals;
-                               builder   = fbuilder }
-                             fdecl.A.body
-    in
+    let env = List.fold_left stmt init_env fdecl.A.body in
 
     (* Add a return if the last block falls off the end *)
-    (match fdecl.A.typ with
-       A.DataType(A.Void) -> add_terminal env L.build_ret_void
-     | t ->
-        match L.block_terminator (L.insertion_block env.builder) with
-          Some _ -> ()
-        | None -> raise (Failure ("missing return statement in function " ^ fdecl.A.fname)));
+    begin match fdecl.A.typ with
+      A.DataType(A.Void) -> add_terminal env L.build_ret_void
+    | _ ->
+       begin match L.block_terminator (L.insertion_block env.builder) with
+         Some _ -> ()
+       | None -> raise (Failure ("missing return statement in function " ^ fdecl.A.fname))
+       end
+    end;
   in
 
-  List.iter build_function_body functions;
+  let rec init_of_type t = 
+    match t with
+      A.DataType(A.Int) -> L.const_int (ltype_of_typ t) 0
+    | A.DataType(A.Bool) -> L.const_int (ltype_of_typ t) 0 
+    | A.DataType(A.Float) -> L.const_float (ltype_of_typ t) 0.0 
+    | A.DataType(A.String) -> L.const_string context "" 
+    | A.List(_) -> L.const_null (ltype_of_typ t)
+    | A.Struct(_, _) -> L.const_null (ltype_of_typ t)
+    | A.UserType(_) -> let t' = S.resolve_user_type t user_types in
+                       init_of_type t'
+    | A.FuncType(_) -> L.const_null (ltype_of_typ t)
+    | _ -> raise (Failure ("Global variable with unsupported type: " ^ (A.string_of_typ t)))
+  in
+
+  (* Declare each global variable; remember its value in a map *)
+  let add_global env stmt = match stmt with
+      A.Global(vd) -> 
+      begin match vd with 
+        A.Bind(t, id) ->
+        let init = init_of_type t in
+        debug ("init = " ^ (L.string_of_llvalue init));
+        let var = L.define_global id init the_module in
+        { env with externals = StringMap.add id var env.externals }
+      | A.Binass(t, id, e) -> 
+         let init = init_of_type t in
+         debug ("init = " ^ (L.string_of_llvalue init));
+         let var = L.define_global id init the_module in
+         debug ("gvar type = " ^ (L.string_of_lltype (L.type_of var)));
+         let (env', lval) = (expr env e) in
+         ignore (llstore lval var env'.builder);
+         { env' with externals = StringMap.add id var env'.externals }
+      end
+    | _ -> env
+  in
+
+  let global_func_map =
+    StringMap.mapi (
+        fun name (fval, _) ->
+        let ft = L.type_of fval in
+        let fvar = L.define_global (name ^ "_ptr") (L.const_pointer_null ft) the_module in
+        ignore (llstore fval fvar global_builder);
+        debug ("fvar type = " ^ (L.string_of_lltype (L.type_of fvar)));
+        fvar
+      ) function_decls
+  in
+
+  let global_env = 
+    List.fold_left add_global
+                   { externals = global_func_map;
+                     locals = StringMap.empty;
+                     builder = global_builder }
+                   global_stmts
+  in
+  
+  StringMap.iter (fun _ fd -> build_function_body global_env fd) function_decls;
 
   let llmem = L.MemoryBuffer.of_file "bindings.bc" in
   let llm = Llvm_bitreader.parse_bitcode context llmem in

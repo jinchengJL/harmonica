@@ -49,7 +49,9 @@ let check (global_stmts, functions) =
 
 
   (* Structural type equality *)
-  let rec typ_equal t1 t2 = 
+  let rec typ_equal t1 t2 =
+    let t1 = resolve_user_type t1 user_types in
+    let t2 = resolve_user_type t2 user_types in
     (match (t1, t2) with
        (Any, _) -> true
      | (_, Any) -> true
@@ -118,8 +120,19 @@ let check (global_stmts, functions) =
   ignore (try List.find (fun f -> f.fname = "main") functions
           with Not_found -> raise (Failure ("main function undefined")));
 
+  (*** Checking Global Variables ***)
+  let add_bind env t name = 
+    check_not_void (fun n -> "illegal void variable " ^ n) (t, name);
+    if StringMap.mem name env.locals then
+      raise (Failure ("redefinition of " ^ name))
+    else {
+        externals = env.externals;
+        locals = StringMap.add name t env.locals
+      }
+  in
+
   (* NOTE: inner-scope variable overrides outer-scope variable with same name *)
-  let rec type_of_identifier env = function
+  let rec type_of_id env = function
       NaiveId(s) -> 
       let t = 
         (try StringMap.find s (env.locals)
@@ -129,14 +142,14 @@ let check (global_stmts, functions) =
       in 
       resolve_user_type t user_types
     | MemberId(id, n) -> 
-       let container_type = resolve_user_type (type_of_identifier env id) user_types in
+       let container_type = resolve_user_type (type_of_id env id) user_types in
        (match container_type with
           Struct(_, blist) -> 
           let (t, _) = List.find (fun (_, n') -> n' = n) blist in
           resolve_user_type t user_types
         | _ -> raise (Failure (string_of_id id  ^ " is not a struct type")))
     | IndexId(id, e) ->
-       let container_type = resolve_user_type (type_of_identifier env id) user_types in
+       let container_type = resolve_user_type (type_of_id env id) user_types in
        (match container_type with
           List(t) -> (match expr env e with DataType(Int) ->
                                             resolve_user_type t user_types
@@ -161,7 +174,7 @@ let check (global_stmts, functions) =
          then List(canon)
          else raise (Failure ("inconsistent types in list literal " 
                               ^ string_of_expr e))
-    | Id s -> type_of_identifier env s
+    | Id s -> type_of_id env s
     | Binop(e1, op, e2) as e -> 
        let t1 = expr env e1 and t2 = expr env e2 in
        (match op with
@@ -173,7 +186,6 @@ let check (global_stmts, functions) =
                         DataType(Float) -> DataType(Float)
                       | _ -> DataType(Int)
                      )
-
                  )
           | Equal | Neq when t1 = t2 -> DataType(Bool)
           | Less | Leq | Greater | Geq 
@@ -200,13 +212,13 @@ let check (global_stmts, functions) =
                                  string_of_typ t ^ " in " ^ string_of_expr ex)))
          
     | Noexpr -> DataType(Void)
-    | Assign(var, e) as ex -> let lt = type_of_identifier env var
+    | Assign(var, e) as ex -> let lt = type_of_id env var
                               and rt = expr env e in
                               check_assign lt rt (Failure ("illegal assignment " ^ string_of_typ lt ^
                                                              " = " ^ string_of_typ rt ^ " in " ^ 
                                                                string_of_expr ex))
     | Call(fname, actuals) as call -> 
-       let ftype = type_of_identifier env fname in
+       let ftype = type_of_id env fname in
        (match ftype with
           FuncType(tlist) ->
           let get_tp tp = resolve_user_type tp user_types in
@@ -226,17 +238,22 @@ let check (global_stmts, functions) =
           ret
         | _ -> raise (Failure (string_of_id fname ^ " is not a function"))
        )
-  in
-
-  (*** Checking Global Variables ***)
-  let add_bind env t name = 
-    check_not_void (fun n -> "illegal void variable " ^ n) (t, name);
-    if StringMap.mem name env.locals then
-      raise (Failure ("redefinition of " ^ name))
-    else {
-        externals = env.externals;
-        locals = StringMap.add name t env.locals
-      }
+    | Lambda(rt, blist, e) ->
+       let new_env = {
+           externals = StringMap.merge (fun _ xo yo -> match xo,yo with
+                                                       | Some x, Some _ -> Some x 
+                                                       | None, yo -> yo
+                                                       | xo, None -> xo ) env.locals env.externals;
+           locals = StringMap.empty
+         } in
+       let fenv = List.fold_left 
+                    (fun env' (t, name) -> add_bind env' t name) new_env blist in
+       let rt = resolve_user_type rt user_types in
+       let et = expr fenv e in
+       if typ_equal rt et
+       then FuncType(rt :: (List.map fst blist))
+       else raise (Failure ("expression does not match lambda return type: found " ^
+                              string_of_typ et ^ ", expected " ^ string_of_typ rt))
   in
 
   let add_vdecl env = function

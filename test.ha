@@ -9,6 +9,8 @@ struct person {
   string name;
 };
 
+<bool int> f = lambda (bool b) int (global_init);
+
 int main() { 
   float f;
   string s;
@@ -52,5 +54,4 @@ int main() {
   float q = +.3;
   i = i+1;
 
-  <int> f;
 }

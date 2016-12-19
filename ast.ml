@@ -12,10 +12,12 @@ type typ =
   | Tuple of typ list
   | List of typ
   | Channel of typ
-  | Struct of string * (typ * string) list
+  | Struct of string * bind list
   | UserType of string
   | FuncType of typ list
   | Any
+
+and bind = typ * string
 
 type id = 
     NaiveId of string
@@ -34,6 +36,7 @@ and expr =
   | Unop of uop * expr
   | Assign of id * expr
   | Call of id * expr list
+  | Lambda of typ * bind list * expr
   | Noexpr
 
 type var_decl = 
@@ -56,7 +59,7 @@ type stmt =
 type func_decl = {
     typ : typ;
     fname : string;
-    formals : (typ * string) list;
+    formals : bind list;
     body : stmt list;
   }
 
@@ -83,6 +86,25 @@ let string_of_uop = function
     Neg -> "Neg"
   | Not -> "Not"
 
+let map_and_concat f list = String.concat ", " (List.map f list)
+
+let rec string_of_typ = function
+    DataType(Int) -> "Int"
+  | DataType(Bool) -> "Bool"
+  | DataType(Void) -> "Void"
+  | DataType(Float) -> "Float"
+  | DataType(String) -> "String"
+  | Any -> "Any"
+  | Tuple(tlist) -> "Tuple(" ^ string_of_tlist tlist ^ ")"
+  | List(t) -> "List(" ^ string_of_typ t ^ ")"
+  | Struct(id, blist) -> "Struct(" ^ id ^ ", " ^ string_of_blist blist ^ ")"
+  | Channel(t) -> "Channel(" ^ string_of_typ t ^ ")"
+  | UserType(id) -> "UserType(" ^ id ^ ")"
+  | FuncType(tlist) -> "FuncType(" ^ string_of_tlist tlist ^ ")"
+                                                                                           
+and string_of_bind (t, id) = "Bind(" ^ string_of_typ t ^ ", " ^ id ^ ")"
+and string_of_tlist tlist = map_and_concat string_of_typ  tlist
+and string_of_blist blist = map_and_concat string_of_bind blist
 
 let rec string_of_id = function
     NaiveId(s) -> s
@@ -104,23 +126,10 @@ and string_of_expr = function
   | Assign(v, e) -> "Assign(" ^ string_of_id v ^ ", " ^ string_of_expr e ^ ")"
   | Call(f, el) ->
      "Call(" ^ string_of_id f ^ ", " ^ String.concat ", " (List.map string_of_expr el) ^ ")"
+  | Lambda(rt, blist, e) ->
+     "Lambda(" ^ string_of_typ rt ^ ", " ^ string_of_blist blist ^ ", " ^ string_of_expr e ^ ")"
   | Noexpr -> "Noexpr"
 
-
-let rec string_of_typ = function
-    DataType(Int) -> "Int"
-  | DataType(Bool) -> "Bool"
-  | DataType(Void) -> "Void"
-  | DataType(Float) -> "Float"
-  | DataType(String) -> "String"
-  | Any -> "Any"
-  | Tuple(tlist) -> "Tuple(" ^ String.concat ", " (List.map string_of_typ tlist) ^ ")"
-  | List(t) -> "List(" ^ string_of_typ t ^ ")"
-  | Struct(id, vlist) -> "Struct(" ^ id ^ ", " ^ String.concat ", " (List.map string_of_bind vlist) ^ ")"
-  | Channel(t) -> "Channel(" ^ string_of_typ t ^ ")"
-  | UserType(id) -> "UserType(" ^ id ^ ")"
-  | FuncType(tlist) -> "FuncType(" ^ String.concat ", " (List.map string_of_typ tlist) ^ ")"
-and string_of_bind (t, id) = "Bind(" ^ string_of_typ t ^ ", " ^ id ^ ")"
 
 let string_of_vdecl = function
     Bind(t, s) -> "Bind(" ^ string_of_typ t ^ ", " ^ s ^ ")\n"
