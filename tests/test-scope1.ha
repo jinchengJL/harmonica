@@ -5,4 +5,6 @@ int main() {
         printi(b);
     }
     printi(b);
+
+    return 0;
 }

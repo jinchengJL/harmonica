@@ -10,4 +10,6 @@ int main() {
   printi(arr[1]);
   printi(arr[2]);
   printi(arr[4]);
+
+  return 0;
 }

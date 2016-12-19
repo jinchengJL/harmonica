@@ -28,19 +28,20 @@ int isPrime(int a){
     }
     return 1;
   }
+  return 0;
 }
 
 float abs(float x){
   if (x>0.0) {
     return x;
-  } else {
-    if (x==0.0){
-      return 0.0;
-    }
-    float y = 0.0 - x;
-    return y;
   }
-
+  
+  if (x==0.0){
+    return 0.0;
+  }
+  
+  float y = 0.0 - x;
+  return y;
 }
 
 float sqrt(float a){

@@ -16,6 +16,7 @@ float abs(float x){
     return y;
   }
 
+  return x;
 }
 
 float sqrt(float a){
@@ -51,9 +52,6 @@ float sqrt(float a){
 struct line{
     point s;
     point e;
-
-
-
 };
 
 float l2norm(line l){

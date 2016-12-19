@@ -12,4 +12,6 @@ int main() {
     p2.age = 4;
     printi(p2.age);
     printi(p.age);
+
+    return 0;
 }

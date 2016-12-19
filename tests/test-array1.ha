@@ -13,4 +13,6 @@ int main() {
   l2[3] = 75;
   l2[1] = 5;
   printi(l2[1]);
+
+  return 0;
 }

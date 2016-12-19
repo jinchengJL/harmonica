@@ -9,6 +9,8 @@ int f(int v) {
     arr[i] = i;
     i += 1;
     mutex_unlock(m);
+
+    return 0;
 }
 
 int main() {
@@ -22,4 +24,6 @@ int main() {
    }
 
    free(arr);
+
+   return 0;
 }

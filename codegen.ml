@@ -447,6 +447,7 @@ let translate (global_stmts, functions) =
     | A.Struct(_, _) -> L.const_null (ltype_of_typ t)
     | A.UserType(_) -> let t' = S.resolve_user_type t user_types in
                        init_of_type t'
+    | A.FuncType(_) -> L.const_null (ltype_of_typ t)
     | _ -> raise (Failure ("Global variable with unsupported type: " ^ (A.string_of_typ t)))
   in
 
@@ -608,10 +609,12 @@ let translate (global_stmts, functions) =
     in
 
     (* Add a return if the last block falls off the end *)
-    add_terminal env (match fdecl.A.typ with
-                        A.DataType(A.Void) -> L.build_ret_void
-                      | t -> L.build_ret (init_of_type t));
-    ()
+    (match fdecl.A.typ with
+       A.DataType(A.Void) -> add_terminal env L.build_ret_void
+     | t ->
+        match L.block_terminator (L.insertion_block env.builder) with
+          Some _ -> ()
+        | None -> raise (Failure ("missing return statement in function " ^ fdecl.A.fname)));
   in
 
   List.iter build_function_body functions;

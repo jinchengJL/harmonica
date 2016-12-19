@@ -1,6 +1,6 @@
-int selectionSort(list[int] arr, int length) {
+void selectionSort(list[int] arr, int length) {
     if (length < 0)
-      return -1;
+      return ;
 
     int i;
     int j;

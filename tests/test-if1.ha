@@ -7,7 +7,8 @@ int main(){
 		printi(8);
 	}
 
-	# FAILED;
 	int b;
 	printi(9);
+
+  return 0;
 }

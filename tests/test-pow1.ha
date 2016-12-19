@@ -10,10 +10,10 @@ float powi(float x, int n){
             y = y*x;
         }
         return y;
-    } else {
-        int n_ = 0 - n;
-        return (1.0/powi(x, n_));
     }
+    
+    int n_ = 0 - n;
+    return (1.0/powi(x, n_));
 }
 
 float factorialf(float x){

@@ -6,4 +6,5 @@ person p;
 int main() {
   printi(sizeof(0));
   printi(sizeof(p));
+  return 0;
 }

@@ -7,4 +7,6 @@ int fb() {
 int main() {
   int a = 99;
   printi(fb());
+
+  return 0;
 }
