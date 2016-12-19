@@ -7,6 +7,5 @@ int main(){
     int i = 1;
     printf(i/1.0);
 
-
     return 0;
 }

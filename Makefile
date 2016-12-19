@@ -18,7 +18,7 @@ bindings.bc : bindings.c
 .PHONY : clean
 clean :
 	ocamlbuild -clean
-	rm -rf testall.log *.diff harmonica scanner.ml parser.ml parser.mli
+	rm -rf testall.log *.diff harmonica scanner.ml parser.ml parser.mli bindings.bc
 	rm -rf *.err *.ll
 	rm -rf *.cmx *.cmi *.cmo *.cmx *.o
 	rm -rf *~ \#* *.out

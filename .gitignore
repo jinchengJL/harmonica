@@ -12,6 +12,7 @@
 parser.ml
 scanner.ml
 parser.output
+bindings.bc
 
 # ocamlbuild working directory
 _build/

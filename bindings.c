@@ -59,7 +59,6 @@ void* mutex_create(void) {
 
 int lock(void* mtx) {
 	int err = pthread_mutex_lock((pthread_mutex_t *) mtx);
-    printf("locked\n");
 	if (err != 0) {
 		perror("mutex lock failed");
 		return err;
@@ -68,7 +67,6 @@ int lock(void* mtx) {
 }
 
 int unlock(void* mtx) {
-    printf("unlocking\n");
 	int err = pthread_mutex_unlock((pthread_mutex_t *) mtx);
 	if (err != 0) {
 		perror("mutex unlock failed");
