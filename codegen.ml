@@ -10,7 +10,7 @@ Detailed documentation on the OCaml LLVM library:
 http://llvm.moe/
 http://llvm.moe/ocaml/
 
-*)
+ *)
 
 module L = Llvm
 module A = Ast
@@ -118,7 +118,7 @@ let translate (global_stmts, functions) =
 
   let str_concat_t = L.function_type string_t [| string_t; string_t|] in
   let str_concat_func = L.declare_function "str_concat" str_concat_t the_module in
- 
+  
   let subroutine_t = L.pointer_type (L.function_type voidstar_t [| voidstar_t |] ) in  
   let parallel_t = L.function_type i32_t [| subroutine_t; L.pointer_type voidstar_t; i32_t; i32_t |] in
   let parallel_func = L.declare_function "parallel" parallel_t the_module in
@@ -141,7 +141,7 @@ let translate (global_stmts, functions) =
     let function_decl m fdecl =
       let name = fdecl.A.fname in
       let formal_types =
-	      Array.of_list (List.map (fun (t,_) -> ltype_of_typ t) fdecl.A.formals)
+        Array.of_list (List.map (fun (t,_) -> ltype_of_typ t) fdecl.A.formals)
       in
       let ftype = L.function_type (ltype_of_typ fdecl.A.typ) formal_types in
       let fval  = L.define_function name ftype the_module in
@@ -175,35 +175,35 @@ let translate (global_stmts, functions) =
       (* debug ("lookup: " ^ n ^ " = " ^ (L.string_of_llvalue result)); *)
       result
     | A.MemberId(id, field_name) -> 
-        let rec find_index_of field_name list = 
-          match list with
-            [] -> raise (Failure ("undeclared field " ^ field_name))
-          | hd :: tl -> if field_name = (snd hd) 
-                        then 0 
-                        else 1 + find_index_of field_name tl
-        in
-        let container_pp = lookup env id in
-        let container_addr = L.build_load container_pp "" env.builder in
-        let container = L.build_load container_addr "" env.builder in
-        debug ("container: " ^ L.string_of_llvalue container);
-        let container_tname_opt = L.struct_name (L.type_of container) in
-        (match container_tname_opt with
+       let rec find_index_of field_name list = 
+         match list with
+           [] -> raise (Failure ("undeclared field " ^ field_name))
+         | hd :: tl -> if field_name = (snd hd) 
+                       then 0 
+                       else 1 + find_index_of field_name tl
+       in
+       let container_pp = lookup env id in
+       let container_addr = L.build_load container_pp "" env.builder in
+       let container = L.build_load container_addr "" env.builder in
+       debug ("container: " ^ L.string_of_llvalue container);
+       let container_tname_opt = L.struct_name (L.type_of container) in
+       (match container_tname_opt with
           None -> raise (Failure ("expected struct, found tuple: " ^ A.string_of_id id))
         | Some(container_tname) ->
-            let fields = StringMap.find container_tname struct_map in
-            let idx = find_index_of field_name fields in
-            let addr = L.build_struct_gep container_addr idx "" env.builder in
-            addr)
+           let fields = StringMap.find container_tname struct_map in
+           let idx = find_index_of field_name fields in
+           let addr = L.build_struct_gep container_addr idx "" env.builder in
+           addr)
     | A.IndexId(id, e) ->
-        let array_pp = lookup env id in (* ptr to ptr to array *)
-        let array_ptr = L.build_load array_pp "" env.builder in
-        let index = snd (expr env e) in
-        debug ("index = " ^ (L.string_of_llvalue index));
-        let eaddr = L.build_gep array_ptr [|index|] "" env.builder in
-        debug ("eaddr = " ^ (L.string_of_llvalue eaddr));
-        (* let etype = L.element_type (L.type_of array_ptr) in *)
-        (* let ptr = L.build_pointercast eaddr (L.pointer_type etype) "" env.builder in *)
-        eaddr
+       let array_pp = lookup env id in (* ptr to ptr to array *)
+       let array_ptr = L.build_load array_pp "" env.builder in
+       let index = snd (expr env e) in
+       debug ("index = " ^ (L.string_of_llvalue index));
+       let eaddr = L.build_gep array_ptr [|index|] "" env.builder in
+       debug ("eaddr = " ^ (L.string_of_llvalue eaddr));
+       (* let etype = L.element_type (L.type_of array_ptr) in *)
+       (* let ptr = L.build_pointercast eaddr (L.pointer_type etype) "" env.builder in *)
+       eaddr
     end
 
   (* Construct code for an expression; return its value *)
@@ -226,75 +226,53 @@ let translate (global_stmts, functions) =
     | A.StringLit s -> (env, L.build_global_stringptr s "" env.builder)
     | A.FloatLit f -> (env, L.const_float dbl_t f)
     | A.TupleLit _ -> raise (Failure "tuples are currently not supported")
-        (* let (env, elements) = evaluate_exprs env elist in *)
-        (* (env, L.const_struct context (Array.of_list elements)) *)
+    (* let (env, elements) = evaluate_exprs env elist in *)
+    (* (env, L.const_struct context (Array.of_list elements)) *)
     | A.ListLit elist ->
-        if List.length elist == 0
-        then raise (Failure "Empty lists are not supported")
-        else
-          let (env, elements) = evaluate_exprs env elist in
-          debug ("elements = " ^ String.concat ", " (List.map L.string_of_llvalue elements));
-          let etype = L.type_of (List.hd elements) in
-          debug ("etype = " ^ L.string_of_lltype etype);
-          (* let array = L.const_array etype (Array.of_list elements) in *)
-          (* debug ("array = " ^ L.string_of_llvalue array); *)
-          let num_elems = List.length elist in
-          let ptr = L.build_array_malloc
-                      etype
-                      (L.const_int i32_t num_elems)
-                      "" 
-                      env.builder in
-          (* debug ("ptr = " ^ L.string_of_llvalue ptr); *)
-          (* let eptr = L.build_pointercast ptr  *)
-          (*                                (L.pointer_type etype)  *)
-          (*                                "" *)
-          (*                                env.builder in *)
-          ignore (List.fold_left 
-                    (fun i elem ->
-                      let ind = L.const_int i32_t i in
-                      let eptr = L.build_gep ptr [|ind|] "" env.builder in
-                      llstore elem eptr env.builder;
-                      i+1
-                    ) 0 elements);
-          (env, ptr)
+       if List.length elist == 0
+       then raise (Failure "Empty lists are not supported")
+       else
+         let (env, elements) = evaluate_exprs env elist in
+         debug ("elements = " ^ String.concat ", " (List.map L.string_of_llvalue elements));
+         let etype = L.type_of (List.hd elements) in
+         debug ("etype = " ^ L.string_of_lltype etype);
+         (* let array = L.const_array etype (Array.of_list elements) in *)
+         (* debug ("array = " ^ L.string_of_llvalue array); *)
+         let num_elems = List.length elist in
+         let ptr = L.build_array_malloc
+                     etype
+                     (L.const_int i32_t num_elems)
+                     "" 
+                     env.builder in
+         (* debug ("ptr = " ^ L.string_of_llvalue ptr); *)
+         (* let eptr = L.build_pointercast ptr  *)
+         (*                                (L.pointer_type etype)  *)
+         (*                                "" *)
+         (*                                env.builder in *)
+         ignore (List.fold_left 
+                   (fun i elem ->
+                     let ind = L.const_int i32_t i in
+                     let eptr = L.build_gep ptr [|ind|] "" env.builder in
+                     llstore elem eptr env.builder;
+                     i+1
+                   ) 0 elements);
+         (env, ptr)
     | A.Noexpr -> (env, L.const_int i32_t 0)
     | A.Id id -> 
        (env, L.build_load (lookup env id) "" env.builder)
     | A.Binop (e1, op, e2) ->
-        let (env, e1') = expr env e1 in
-        let (env, e2') = expr env e2 in
-        let exp_type = L.classify_type(L.type_of e1') in
-        let exp_type2 = L.classify_type(L.type_of e2') in
-        (match exp_type with 
-        L.TypeKind.Double ->
+       let (env, e1') = expr env e1 in
+       let (env, e2') = expr env e2 in
+       let exp_type = L.classify_type(L.type_of e1') in
+       let exp_type2 = L.classify_type(L.type_of e2') in
+       (match exp_type with 
+          L.TypeKind.Double ->
           let e2_ = match exp_type2 with 
-                    L.TypeKind.Double -> e2' 
-                    | L.TypeKind.Integer -> (L.build_sitofp e2' dbl_t "" env.builder)
-                    | _ -> raise (Failure "Algebra only supports float and int.") in 
-          (env,
-          (match op with
-              A.Add     -> L.build_fadd
-            | A.Sub     -> L.build_fsub
-            | A.Mult    -> L.build_fmul
-            | A.Div     -> L.build_fdiv
-            | A.And     -> L.build_and
-            | A.Or      -> L.build_or
-            | A.Equal   -> L.build_fcmp L.Fcmp.Oeq
-            | A.Neq     -> L.build_fcmp L.Fcmp.One
-            | A.Less    -> L.build_fcmp L.Fcmp.Ult
-            | A.Leq     -> L.build_fcmp L.Fcmp.Ole
-            | A.Greater -> L.build_fcmp L.Fcmp.Ogt
-            | A.Geq     -> L.build_fcmp L.Fcmp.Oge
-          ) e1' e2_ "tmp" env.builder)
-        | _ ->
-          (match exp_type2 with 
-          L.TypeKind.Double -> 
-          let e1_ = match exp_type with
-            L.TypeKind.Double -> e1'
-            | L.TypeKind.Integer -> (L.build_sitofp e1' dbl_t "" env.builder)
+              L.TypeKind.Double -> e2' 
+            | L.TypeKind.Integer -> (L.build_sitofp e2' dbl_t "" env.builder)
             | _ -> raise (Failure "Algebra only supports float and int.") in 
-            (env,
-            (match op with
+          (env,
+           (match op with
               A.Add     -> L.build_fadd
             | A.Sub     -> L.build_fsub
             | A.Mult    -> L.build_fmul
@@ -307,92 +285,114 @@ let translate (global_stmts, functions) =
             | A.Leq     -> L.build_fcmp L.Fcmp.Ole
             | A.Greater -> L.build_fcmp L.Fcmp.Ogt
             | A.Geq     -> L.build_fcmp L.Fcmp.Oge
-            ) e1_ e2' "tmp" env.builder)
-          | _ ->
-            (env,
-            (match op with
-                A.Add     -> L.build_add
-              | A.Sub     -> L.build_sub
-              | A.Mult    -> L.build_mul
-              | A.Div     -> L.build_sdiv
-              | A.And     -> L.build_and
-              | A.Or      -> L.build_or
-              | A.Equal   -> L.build_icmp L.Icmp.Eq
-              | A.Neq     -> L.build_icmp L.Icmp.Ne
-              | A.Less    -> L.build_icmp L.Icmp.Slt
-              | A.Leq     -> L.build_icmp L.Icmp.Sle
-              | A.Greater -> L.build_icmp L.Icmp.Sgt
-              | A.Geq     -> L.build_icmp L.Icmp.Sge
-            ) e1' e2' "tmp" env.builder)
-          )  
-        )
+           ) e1' e2_ "tmp" env.builder)
+        | _ ->
+           (match exp_type2 with 
+              L.TypeKind.Double -> 
+              let e1_ = match exp_type with
+                  L.TypeKind.Double -> e1'
+                | L.TypeKind.Integer -> (L.build_sitofp e1' dbl_t "" env.builder)
+                | _ -> raise (Failure "Algebra only supports float and int.") in 
+              (env,
+               (match op with
+                  A.Add     -> L.build_fadd
+                | A.Sub     -> L.build_fsub
+                | A.Mult    -> L.build_fmul
+                | A.Div     -> L.build_fdiv
+                | A.And     -> L.build_and
+                | A.Or      -> L.build_or
+                | A.Equal   -> L.build_fcmp L.Fcmp.Oeq
+                | A.Neq     -> L.build_fcmp L.Fcmp.One
+                | A.Less    -> L.build_fcmp L.Fcmp.Ult
+                | A.Leq     -> L.build_fcmp L.Fcmp.Ole
+                | A.Greater -> L.build_fcmp L.Fcmp.Ogt
+                | A.Geq     -> L.build_fcmp L.Fcmp.Oge
+               ) e1_ e2' "tmp" env.builder)
+            | _ ->
+               (env,
+                (match op with
+                   A.Add     -> L.build_add
+                 | A.Sub     -> L.build_sub
+                 | A.Mult    -> L.build_mul
+                 | A.Div     -> L.build_sdiv
+                 | A.And     -> L.build_and
+                 | A.Or      -> L.build_or
+                 | A.Equal   -> L.build_icmp L.Icmp.Eq
+                 | A.Neq     -> L.build_icmp L.Icmp.Ne
+                 | A.Less    -> L.build_icmp L.Icmp.Slt
+                 | A.Leq     -> L.build_icmp L.Icmp.Sle
+                 | A.Greater -> L.build_icmp L.Icmp.Sgt
+                 | A.Geq     -> L.build_icmp L.Icmp.Sge
+                ) e1' e2' "tmp" env.builder)
+           )  
+       )
     | A.Unop(op, e) ->
-        let (env, e') = expr env e in
-        (env,
+       let (env, e') = expr env e in
+       (env,
         (match op with
-            A.Neg     -> L.build_neg
-          | A.Not     -> L.build_not) e' "tmp" env.builder)
+           A.Neg     -> L.build_neg
+         | A.Not     -> L.build_not) e' "tmp" env.builder)
     | A.Assign (s, e) -> 
-        let (env, e') = expr env e in
-        let addr = lookup env s in
-        ignore (llstore e' addr env.builder);
-        (env, e')
+       let (env, e') = expr env e in
+       let addr = lookup env s in
+       ignore (llstore e' addr env.builder);
+       (env, e')
 
     | A.Call (A.NaiveId("printi"), [e]) ->
-        let (env, v) = expr env e in
-        (env, (L.build_call printf_func
-                            [| int_format_str ; v |]
-                            "printi" env.builder))
+       let (env, v) = expr env e in
+       (env, (L.build_call printf_func
+                           [| int_format_str ; v |]
+                           "printi" env.builder))
 
     | A.Call (A.NaiveId("printb"), [e]) ->
-        let (env, v) = expr env e in
-        (env, (L.build_call printf_func 
-                            [| int_format_str ; v |]
-                            "printb" env.builder))
+       let (env, v) = expr env e in
+       (env, (L.build_call printf_func 
+                           [| int_format_str ; v |]
+                           "printb" env.builder))
 
     | A.Call (A.NaiveId("print"), [e]) -> 
-        let (env, v) = expr env e in
-        (env, L.build_call printf_func 
+       let (env, v) = expr env e in
+       (env, L.build_call printf_func 
                           [| v |] "print" 
                           env.builder)
-    
+         
     | A.Call (A.NaiveId("printendl"), [e]) ->
-        let (env, v) = expr env e in
-        (env, L.build_call printf_func 
-                  [| endl_str; v |] "printendl" 
-                  env.builder)
+       let (env, v) = expr env e in
+       (env, L.build_call printf_func 
+                          [| endl_str; v |] "printendl" 
+                          env.builder)
 
 
     | A.Call (A.NaiveId("printf"), [e]) ->
-        let (env, v) = expr env e in
-        (env, L.build_call printf_func
+       let (env, v) = expr env e in
+       (env, L.build_call printf_func
                           [| float_format_str ; v |]
                           "printf" env.builder)
 
     | A.Call(A.NaiveId("concat"), [c1; c2]) ->
-	let (env', v1) = expr env c1 in
-	let (env'', v2) = expr env' c2 in
-	(env'', L.build_call str_concat_func [| v1; v2 |] "" env''.builder)
+       let (env', v1) = expr env c1 in
+       let (env'', v2) = expr env' c2 in
+       (env'', L.build_call str_concat_func [| v1; v2 |] "" env''.builder)
 
     | A.Call(A.NaiveId("sizeof"), [e]) -> 
        let (env', v1) = expr env e in
        let i64_size = L.size_of (L.type_of v1 )in
        let i32_size = L.build_intcast i64_size i32_t "" env'.builder in
-        (env', i32_size)
-    
+       (env', i32_size)
+         
     | A.Call(A.NaiveId("parallel"), [f; pool; nthread]) ->
-        let (env1, llf) = expr env f in
-        let (env2, llpool) = expr env1 pool in
-        let (env3, llnthread) = expr env2 nthread in
+       let (env1, llf) = expr env f in
+       let (env2, llpool) = expr env1 pool in
+       let (env3, llnthread) = expr env2 nthread in
 
-        let etype = L.element_type (L.type_of llpool) in
-        let size = L.size_of etype in
-        let i32_size = L.build_intcast size i32_t "" env3.builder in
+       let etype = L.element_type (L.type_of llpool) in
+       let size = L.size_of etype in
+       let i32_size = L.build_intcast size i32_t "" env3.builder in
 
-        let fcast = L.build_bitcast llf subroutine_t "" env3.builder in
-        let poolcast = L.build_bitcast llpool (L.pointer_type voidstar_t) "" env3.builder in
-        let v_arr = [| fcast; poolcast; i32_size; llnthread |]  in
-        (env3, L.build_call parallel_func v_arr "" env3.builder)
+       let fcast = L.build_bitcast llf subroutine_t "" env3.builder in
+       let poolcast = L.build_bitcast llpool (L.pointer_type voidstar_t) "" env3.builder in
+       let v_arr = [| fcast; poolcast; i32_size; llnthread |]  in
+       (env3, L.build_call parallel_func v_arr "" env3.builder)
 
     | A.Call(A.NaiveId("free"), [e]) ->
        let (env1, e') = expr env e in
@@ -422,19 +422,19 @@ let translate (global_stmts, functions) =
        (env1, L.build_call mutex_destroy_func [|mut|] "" env1.builder)
 
     | A.Call (f, act) ->
-        let fptr = lookup env f in
-        debug ("fptr = " ^ L.string_of_llvalue fptr);
-        let fdef = L.build_load fptr "" env.builder in
-        debug ("fdef = " ^ L.string_of_llvalue fdef);
-        debug ("fdef type = " ^ L.string_of_lltype (L.type_of fdef));
-        let (env, actuals) = List.fold_right
+       let fptr = lookup env f in
+       debug ("fptr = " ^ L.string_of_llvalue fptr);
+       let fdef = L.build_load fptr "" env.builder in
+       debug ("fdef = " ^ L.string_of_llvalue fdef);
+       debug ("fdef type = " ^ L.string_of_lltype (L.type_of fdef));
+       let (env, actuals) = List.fold_right
                               (fun e (env, values) ->
                                 let (env', v) = expr env e in
                                 (env', v :: values))
                               act
                               (env, [])
-                              in
-        (env, L.build_call fdef (Array.of_list actuals) "" env.builder)
+       in
+       (env, L.build_call fdef (Array.of_list actuals) "" env.builder)
   in
 
   let rec init_of_type t = 
@@ -473,18 +473,18 @@ let translate (global_stmts, functions) =
 
   let global_env = 
     List.fold_left add_global
-    { externals = 
-        StringMap.mapi (
-            fun name (fval, _) ->
-            let ft = L.type_of fval in
-            let fvar = L.define_global (name ^ "_ptr") (L.const_pointer_null ft) the_module in
-            ignore (llstore fval fvar global_builder);
-            debug ("fvar type = " ^ (L.string_of_lltype (L.type_of fvar)));
-            fvar
-          ) function_decls;
-      locals = StringMap.empty;
-      builder = global_builder }
-    global_stmts
+                   { externals = 
+                       StringMap.mapi (
+                           fun name (fval, _) ->
+                           let ft = L.type_of fval in
+                           let fvar = L.define_global (name ^ "_ptr") (L.const_pointer_null ft) the_module in
+                           ignore (llstore fval fvar global_builder);
+                           debug ("fvar type = " ^ (L.string_of_lltype (L.type_of fvar)));
+                           fvar
+                         ) function_decls;
+                     locals = StringMap.empty;
+                     builder = global_builder }
+                   global_stmts
   in
 
   (* Fill in the body of the given function *)
@@ -496,24 +496,24 @@ let translate (global_stmts, functions) =
        have a terminal (e.g., a branch). *)
     let add_terminal env f =
       match L.block_terminator (L.insertion_block env.builder) with
-      	Some _ -> ()
+        Some _ -> ()
       | None -> ignore (f env.builder) in
-	
+    
     (* Build the code for the given statement; return the builder for
        the statement's successor *)
     let rec stmt env = function
-	      A.Block sl -> 
-	      let new_bb = L.append_block context "block" the_function in
+        A.Block sl -> 
+        let new_bb = L.append_block context "block" the_function in
         let cont_bb = L.append_block context "cont" the_function in
         let nenv = {
-          locals = StringMap.empty;
-          externals = 
-            StringMap.merge (fun _ xo yo -> match xo,yo with
-                | Some x, Some _ -> Some x 
-                | None, yo -> yo
-                | xo, None -> xo ) env.locals env.externals;
-          builder = L.builder_at_end context new_bb
-        } in
+            locals = StringMap.empty;
+            externals = 
+              StringMap.merge (fun _ xo yo -> match xo,yo with
+                                              | Some x, Some _ -> Some x 
+                                              | None, yo -> yo
+                                              | xo, None -> xo ) env.locals env.externals;
+            builder = L.builder_at_end context new_bb
+          } in
 
         let nenv' = (List.fold_left stmt nenv sl) in
         add_terminal env (L.build_br new_bb);
@@ -524,39 +524,39 @@ let translate (global_stmts, functions) =
       | A.Return e ->
          let (env', v) = expr env e in
          let ret = (match fdecl.A.typ with
-	                    A.DataType(A.Void) -> L.build_ret_void env'.builder
-	                  | _ -> L.build_ret v env'.builder) in
+                      A.DataType(A.Void) -> L.build_ret_void env'.builder
+                    | _ -> L.build_ret v env'.builder) in
          debug ("ret = " ^ L.string_of_llvalue ret);
          env'
       | A.If (predicate, then_stmt, else_stmt) ->
          let (env', bool_val) = expr env predicate in
-	       let merge_bb = L.append_block context "merge" the_function in
+         let merge_bb = L.append_block context "merge" the_function in
 
-	       let then_bb = L.append_block context "then" the_function in
-	       add_terminal (stmt {env' with builder = (L.builder_at_end context then_bb)} then_stmt)
-	                    (L.build_br merge_bb);
+         let then_bb = L.append_block context "then" the_function in
+         add_terminal (stmt {env' with builder = (L.builder_at_end context then_bb)} then_stmt)
+                      (L.build_br merge_bb);
 
-	       let else_bb = L.append_block context "else" the_function in
-	       add_terminal (stmt {env' with builder = (L.builder_at_end context else_bb)} else_stmt)
-	                    (L.build_br merge_bb);
+         let else_bb = L.append_block context "else" the_function in
+         add_terminal (stmt {env' with builder = (L.builder_at_end context else_bb)} else_stmt)
+                      (L.build_br merge_bb);
 
-	       ignore (L.build_cond_br bool_val then_bb else_bb env.builder);
-	       {env with builder = L.builder_at_end context merge_bb}
+         ignore (L.build_cond_br bool_val then_bb else_bb env.builder);
+         {env with builder = L.builder_at_end context merge_bb}
 
       | A.While (predicate, body) ->
-	       let pred_bb = L.append_block context "while" the_function in
-	       ignore (L.build_br pred_bb env.builder);
+         let pred_bb = L.append_block context "while" the_function in
+         ignore (L.build_br pred_bb env.builder);
 
-	       let pred_builder = L.builder_at_end context pred_bb in
-	       let (env', bool_val) = expr {env with builder = pred_builder} predicate in
+         let pred_builder = L.builder_at_end context pred_bb in
+         let (env', bool_val) = expr {env with builder = pred_builder} predicate in
 
-	       let body_bb = L.append_block context "while_body" the_function in
-	       add_terminal (stmt {env' with builder = (L.builder_at_end context body_bb)} body)
-	                    (L.build_br pred_bb);
+         let body_bb = L.append_block context "while_body" the_function in
+         add_terminal (stmt {env' with builder = (L.builder_at_end context body_bb)} body)
+                      (L.build_br pred_bb);
 
-	       let merge_bb = L.append_block context "merge" the_function in
-	       ignore (L.build_cond_br bool_val body_bb merge_bb pred_builder);
-	       {env with builder = L.builder_at_end context merge_bb}
+         let merge_bb = L.append_block context "merge" the_function in
+         ignore (L.build_cond_br bool_val body_bb merge_bb pred_builder);
+         {env with builder = L.builder_at_end context merge_bb}
 
       | A.For (e1, e2, e3, body) ->
          stmt env ( A.Block [A.Expr e1 ; A.While (e2, A.Block [body ; A.Expr e3]) ] )
@@ -592,9 +592,9 @@ let translate (global_stmts, functions) =
     let add_formal m (t, n) p =
       L.set_value_name n p;
       debug ("adding formal " ^ n ^ " of type " ^ L.string_of_lltype (ltype_of_typ t));
-	    let local = L.build_alloca (ltype_of_typ t) n fbuilder in
-	    ignore (L.build_store p local fbuilder);
-	    StringMap.add n local m
+      let local = L.build_alloca (ltype_of_typ t) n fbuilder in
+      ignore (L.build_store p local fbuilder);
+      StringMap.add n local m
     in
     
     let formals = List.fold_left2 add_formal StringMap.empty fdecl.A.formals

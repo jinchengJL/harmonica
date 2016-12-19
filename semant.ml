@@ -19,7 +19,7 @@ let rec resolve_user_type usert utypes =
    | _ -> usert)
 
 let mutex_t = Struct ("mutex", [])
-    
+                     
 let check (global_stmts, functions) =
 
   (* User-defined types *)
@@ -35,7 +35,7 @@ let check (global_stmts, functions) =
   (* Raise an exception if the given list has a duplicate *)
   let report_duplicate exceptf list =
     let rec helper = function
-	n1 :: n2 :: _ when n1 = n2 -> raise (Failure (exceptf n1))
+        n1 :: n2 :: _ when n1 = n2 -> raise (Failure (exceptf n1))
       | _ :: t -> helper t
       | [] -> ()
     in helper (List.sort compare list)
@@ -69,7 +69,7 @@ let check (global_stmts, functions) =
   (* Raise an exception of the given rvalue type cannot be assigned to
      the given lvalue type *)
   let check_assign lvaluet rvaluet err =
-     if typ_equal lvaluet rvaluet then lvaluet else raise err
+    if typ_equal lvaluet rvaluet then lvaluet else raise err
   in
 
   (**** Checking Functions Definitions ****)
@@ -82,7 +82,7 @@ let check (global_stmts, functions) =
                            " may not be defined")) else ();
 
   report_duplicate (fun n -> "duplicate function " ^ n)
-    (List.map (fun fd -> fd.fname) functions);
+                   (List.map (fun fd -> fd.fname) functions);
 
   (* Global variable table *)
   let builtins = List.fold_left 
@@ -96,13 +96,13 @@ let check (global_stmts, functions) =
                     ("concat", FuncType([DataType(String); DataType(String); DataType(String)]));
                     ("parallel", FuncType([DataType(Int); FuncType([Any; Any]); List(Any); DataType(Int)]));
                     ("free", FuncType([DataType(Void); List(Any)]));
-		    ("malloc", FuncType([List(Any); DataType(Int)]));
+                    ("malloc", FuncType([List(Any); DataType(Int)]));
                     ("mutex_create", FuncType([mutex_t]));
                     ("mutex_lock", FuncType([DataType(Int); mutex_t]));
                     ("mutex_unlock", FuncType([DataType(Int); mutex_t]));
                     ("mutex_destroy", FuncType([DataType(Int); mutex_t]));
-		    ("sizeof",  FuncType([DataType(Int); Any ]))
-		]
+                    ("sizeof",  FuncType([DataType(Int); Any ]))
+                   ]
   in
 
   let get_functype fdecl = FuncType(fdecl.typ :: (List.map fst fdecl.formals)) in
@@ -120,7 +120,7 @@ let check (global_stmts, functions) =
 
   (* NOTE: inner-scope variable overrides outer-scope variable with same name *)
   let rec type_of_identifier env = function
-	NaiveId(s) -> 
+      NaiveId(s) -> 
       let t = 
         (try StringMap.find s (env.locals)
          with Not_found -> (
@@ -136,17 +136,17 @@ let check (global_stmts, functions) =
           resolve_user_type t user_types
         | _ -> raise (Failure (string_of_id id  ^ " is not a struct type")))
     | IndexId(id, e) ->
-        let container_type = resolve_user_type (type_of_identifier env id) user_types in
-      (match container_type with
-         List(t) -> (match expr env e with DataType(Int) ->
-           resolve_user_type t user_types
-     | _ -> raise (Failure "WTF. Must be int."))
-       | _ -> raise (Failure "WTF. Must be list.")
-      ) 
+       let container_type = resolve_user_type (type_of_identifier env id) user_types in
+       (match container_type with
+          List(t) -> (match expr env e with DataType(Int) ->
+                                            resolve_user_type t user_types
+                                          | _ -> raise (Failure "WTF. Must be int."))
+        | _ -> raise (Failure "WTF. Must be list.")
+       ) 
 
   (* Return the type of an expression or throw an exception *)
   and expr env = function
-	    IntLit _ -> DataType(Int)
+      IntLit _ -> DataType(Int)
     | BoolLit _ -> DataType(Bool)
     | StringLit _ -> DataType(String)
     | FloatLit _ -> DataType(Float)
@@ -164,47 +164,47 @@ let check (global_stmts, functions) =
     | Id s -> type_of_identifier env s
     | Binop(e1, op, e2) as e -> 
        let t1 = expr env e1 and t2 = expr env e2 in
-	     (match op with
+       (match op with
           Add | Sub | Mult | Div  -> 
-          (match t1 with 
-              DataType(Float) ->  DataType(Float) 
-            | _ ->
-                (match t2 with 
-                DataType(Float) -> DataType(Float)
-                | _ -> DataType(Int)
-                )
+                 (match t1 with 
+                    DataType(Float) ->  DataType(Float) 
+                  | _ ->
+                     (match t2 with 
+                        DataType(Float) -> DataType(Float)
+                      | _ -> DataType(Int)
+                     )
 
-          )
-	        | Equal | Neq when t1 = t2 -> DataType(Bool)
-	        | Less | Leq | Greater | Geq 
+                 )
+          | Equal | Neq when t1 = t2 -> DataType(Bool)
+          | Less | Leq | Greater | Geq 
                when (t1 = t2) && (t1 = DataType(Int) || t1 = DataType(Float)) 
             -> DataType(Bool)
-	        | And | Or when t1 = DataType(Bool) && t2 = DataType(Bool) -> DataType(Bool)
+          | And | Or when t1 = DataType(Bool) && t2 = DataType(Bool) -> DataType(Bool)
           | _ -> raise (Failure ("illegal binary operator " ^
                                    string_of_typ t1 ^ " " ^ string_of_op op ^ " " ^
                                      string_of_typ t2 ^ " in " ^ string_of_expr e))
        )
     | Unop(op, e) as ex -> 
        let t = expr env e in
-	     (match op with
+       (match op with
 
-	        Neg ->
+          Neg ->
           (match t with
-              DataType(Float) -> DataType(Float)
-            | DataType(Int) -> DataType(Int)
-            |  _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
-	  		                         string_of_typ t ^ " in " ^ string_of_expr ex))
+             DataType(Float) -> DataType(Float)
+           | DataType(Int) -> DataType(Int)
+           |  _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
+                                     string_of_typ t ^ " in " ^ string_of_expr ex))
           )
-	      | Not when t = DataType(Bool) -> DataType(Bool)
+        | Not when t = DataType(Bool) -> DataType(Bool)
         | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
-	  		                         string_of_typ t ^ " in " ^ string_of_expr ex)))
-       
+                                 string_of_typ t ^ " in " ^ string_of_expr ex)))
+         
     | Noexpr -> DataType(Void)
     | Assign(var, e) as ex -> let lt = type_of_identifier env var
                               and rt = expr env e in
                               check_assign lt rt (Failure ("illegal assignment " ^ string_of_typ lt ^
-				                                                     " = " ^ string_of_typ rt ^ " in " ^ 
-				                                                       string_of_expr ex))
+                                                             " = " ^ string_of_typ rt ^ " in " ^ 
+                                                               string_of_expr ex))
     | Call(fname, actuals) as call -> 
        let ftype = type_of_identifier env fname in
        (match ftype with
@@ -245,8 +245,8 @@ let check (global_stmts, functions) =
        let rtype = expr env e in
        ignore (check_assign t rtype 
                             (Failure ("illegal assignment " ^ string_of_typ t ^
-				                                " = " ^ string_of_typ rtype ^ " in " ^ 
-				                                  string_of_expr e)));
+                                        " = " ^ string_of_typ rtype ^ " in " ^ 
+                                          string_of_expr e)));
        add_bind env t name
   in
 
@@ -265,14 +265,14 @@ let check (global_stmts, functions) =
   (*** Checking Function Contents ***)
   let check_function fenv func =
     List.iter (check_not_void (fun n -> "illegal void formal " ^ n ^
-      " in " ^ func.fname)) func.formals;
+                                          " in " ^ func.fname)) func.formals;
 
     report_duplicate (fun n -> "duplicate formal " ^ n ^ " in " ^ func.fname)
-      (List.map snd func.formals);
+                     (List.map snd func.formals);
 
     (* Local variables and formals *)
     let fenv = List.fold_left 
-                (fun e (t, name) -> add_bind e t name) fenv func.formals in
+                 (fun e (t, name) -> add_bind e t name) fenv func.formals in
 
     let check_bool_expr env e = 
       let t = expr env e in
@@ -283,7 +283,7 @@ let check (global_stmts, functions) =
 
     (* Verify a statement or throw an exception, returns updated environment *)
     let rec stmt senv = function
-	      Block sl -> 
+        Block sl -> 
         let rec check_block benv = function
             [Return _ as s] -> stmt benv s
           | Return _ :: _ -> raise (Failure "nothing may follow a return")
@@ -295,17 +295,17 @@ let check (global_stmts, functions) =
             locals = StringMap.empty; 
             externals = 
               StringMap.merge (fun _ xo yo -> match xo,yo with
-                | Some x, Some _ -> Some x 
-                | None, yo -> yo
-                | xo, None -> xo ) senv.locals senv.externals } in
+                                              | Some x, Some _ -> Some x 
+                                              | None, yo -> yo
+                                              | xo, None -> xo ) senv.locals senv.externals } in
         ignore (check_block benv sl);
         senv
       | Expr e -> ignore (expr senv e); senv
       | Return e -> let t = expr senv e in
                     let expected = resolve_user_type func.typ user_types in
                     if typ_equal t expected then senv else
-         raise (Failure ("return gives " ^ string_of_typ t ^ " expected " ^
-                         string_of_typ expected ^ " in " ^ string_of_expr e))
+                      raise (Failure ("return gives " ^ string_of_typ t ^ " expected " ^
+                                        string_of_typ expected ^ " in " ^ string_of_expr e))
       | If(p, b1, b2) -> check_bool_expr senv p; 
                          ignore (stmt senv b1);
                          ignore (stmt senv b2);
