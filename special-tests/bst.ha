@@ -94,16 +94,22 @@ void inorderMap(<Node void> f, Node root) {
 
 struct ThreadArgs {
   int threadNum;
-  int from;
-  int to;
+  int seed;
 };
 
+int a = 97;
+int c = 1;
+int m = 65536;
+
 int insertNumbers(ThreadArgs args) {
-  int i = args.from;
-  for (i = args.from; i < args.to; i += 1) {
-    print("thread ");
+  int rand = args.seed;
+  int i;
+  for (i = 0; i < 30; i += 1) {
+    print("inserting at thread ");
     printi(args.threadNum);
-    add(dbRoot, i);
+    rand = a * rand + c;
+    rand = rand - (rand / m) * m;
+    add(dbRoot, rand);
 
     # go do something else
     int j = 0;
@@ -122,8 +128,7 @@ int main() {
   for (i = 0; i < 4; i += 1) {
     ThreadArgs args;
     args.threadNum = i + 1;
-    args.from = (i - 2) * 386 + 1;
-    args.to = args.from + 20;
+    args.seed = i * 100 + 364;
     argsList[i] = args;
   }
 
