@@ -90,16 +90,17 @@ The following are outdated instructions for macOS.
    with using your system's default version of llvm. Install a
    different version of llvm and opam install llvm with that version
    by running:
-```
-   brew install homebrew/versions/llvm37
-   opam install llvm.3.7
-```
+   
+   `brew install homebrew/versions/llvm37`
+   
+   `opam install llvm.3.7`
+   
    Where the number at the end of both commands is a version different 
    from the one your system currently has.
 
 8. Create a symbolic link to the lli command:
 
-   sudo ln -s /usr/local/opt/llvm/bin/lli /usr/bin/lli
+   `sudo ln -s /usr/local/opt/llvm/bin/lli /usr/bin/lli`
 
    Create the symlink from wherever brew installs the llvm executables
    and place it in your bin. From step 5, I know that brew installed
@@ -115,10 +116,11 @@ The following are outdated instructions for macOS.
    mode (by holding cmd-r when restarting). Open a terminal from
    recovery mode by going to Utilities -> Terminal, and enter the
    following commands:
-```
-   csrutil disable
-   reboot
-```
+   
+   `csrutil disable`
+   
+   `reboot`
+   
    After your machine has restarted, try the `ln....` command again,
    and it should succeed.
 
@@ -127,14 +129,15 @@ The following are outdated instructions for macOS.
    reenable System Integrity Protection when you are done by 
    rebooting your machine into recovery mode and entering the following
    command in the terminal:
-```
-   csrutil enable
-   reboot
-```
+   
+   `csrutil enable`
+   
+   `reboot`
+   
    Another solution is to update your path, e.g.,
-```
-   export PATH=$PATH:/usr/local/opt/llvm/bin
-```
+   
+   `export PATH=$PATH:/usr/local/opt/llvm/bin`
+   
    A third solution is to modify the definition of LLI in testall.sh to
    point to the absolute path, e.g., `LLI="/usr/local/opt/llvm/bin/lli"`
 
