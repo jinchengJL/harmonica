@@ -59,7 +59,7 @@ let translate (global_stmts, functions) =
                      global_stmts
   in
 
-  let typ_cache = ref StringMap.empty in
+  let typ_cache = Hashtbl.create 10 in
 
   let rec ltype_of_typ = function
       A.DataType(A.Int) -> i32_t
@@ -73,11 +73,11 @@ let translate (global_stmts, functions) =
     (* TODO: channels *)
     | A.Struct(name, blist) ->
        let t = 
-         (try StringMap.find name !typ_cache
+         (try Hashtbl.find typ_cache name
           with Not_found -> 
             let struct_t = L.named_struct_type context name in
+            Hashtbl.add typ_cache name struct_t;
             L.struct_set_body struct_t (Array.of_list (List.map ltype_of_typ (List.map fst blist))) false;
-            typ_cache := StringMap.add name struct_t !typ_cache;
             struct_t) in
        L.pointer_type t
     | A.UserType(_) as t -> let t' = S.resolve_user_type t user_types in
@@ -153,7 +153,7 @@ let translate (global_stmts, functions) =
 
   let int_format_str = L.build_global_stringptr "%d\n" "fmt" global_builder in
   let float_format_str = L.build_global_stringptr "%f\n" "fmt" global_builder in
-  let endl_str = L.build_global_stringptr "\n" "fmt" global_builder in
+  let printendl_str = L.build_global_stringptr "%s\n" "fmt" global_builder in
 
   let llstore lval laddr builder =
     let ptr = L.build_pointercast laddr (L.pointer_type (L.type_of lval)) "" builder in
@@ -257,12 +257,16 @@ let translate (global_stmts, functions) =
                      i+1
                    ) 0 elements);
          (env, ptr)
+    | A.Null -> (env, L.const_null voidstar_t)
     | A.Noexpr -> (env, L.const_int i32_t 0)
     | A.Id id -> 
        (env, L.build_load (lookup env id) "" env.builder)
     | A.Binop (e1, op, e2) ->
        let (env, e1') = expr env e1 in
        let (env, e2') = expr env e2 in
+       let e2' = if e2 = A.Null
+                 then L.const_null (L.type_of e1')
+                 else e2' in
        let exp_type = L.classify_type(L.type_of e1') in
        let exp_type2 = L.classify_type(L.type_of e2') in
        (match exp_type with 
@@ -359,7 +363,7 @@ let translate (global_stmts, functions) =
     | A.Call (A.NaiveId("printendl"), [e]) ->
        let (env, v) = expr env e in
        (env, L.build_call printf_func 
-                          [| endl_str; v |] "printendl" 
+                          [| printendl_str; v |] "printendl" 
                           env.builder)
 
 

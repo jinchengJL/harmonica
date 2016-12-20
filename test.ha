@@ -54,4 +54,6 @@ int main() {
   float q = +.3;
   i = i+1;
 
+
+  i = NULL;
 }

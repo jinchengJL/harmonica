@@ -60,7 +60,7 @@ void* mutex_create(void) {
 int lock(void* mtx) {
 	int err = pthread_mutex_lock((pthread_mutex_t *) mtx);
 	if (err != 0) {
-		perror("mutex lock failed");
+		perror("mutex lock");
 		return err;
 	}
 	return 0;
@@ -69,7 +69,7 @@ int lock(void* mtx) {
 int unlock(void* mtx) {
 	int err = pthread_mutex_unlock((pthread_mutex_t *) mtx);
 	if (err != 0) {
-		perror("mutex unlock failed");
+		perror("mutex unlock");
 		return err;
 	}
 	return 0;
@@ -78,7 +78,7 @@ int unlock(void* mtx) {
 int destroy(void* mtx) {
 	int err = pthread_mutex_destroy((pthread_mutex_t *) mtx);
 	if (err != 0) {
-		perror("mutex unlock failed");
+		perror("mutex destroy");
 		return err;
 	}
 	return 0;

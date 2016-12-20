@@ -7,11 +7,11 @@ struct vector_T {
   int memsize;
 };
 
-T __internal_T_variable;
+T __dummy_T;
 
 vector_T vector_T_create() {
   vector_T v;
-  v.elements = malloc(sizeof(__internal_T_variable) * INIT_SIZE);
+  v.elements = malloc(sizeof(__dummy_T) * INIT_SIZE);
   v.length = 0;
   v.memsize = INIT_SIZE;
   return v;
@@ -20,7 +20,7 @@ vector_T vector_T_create() {
 void vector_T_append(vector_T v, T elem) {
   if (v.length >= v.memsize) {
     v.memsize = v.memsize * 2;
-    list[T] dest = malloc(sizeof(__internal_T_variable) * v.memsize);
+    list[T] dest = malloc(sizeof(__dummy_T) * v.memsize);
     int i;
     for (i = 0; i < v.length; i += 1) {
       dest[i] = v.elements[i];

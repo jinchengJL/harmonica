@@ -60,6 +60,7 @@ rule token = parse
 | "chan"    { CHAN }
 | "parallel" { PARALLEL }
 | "lambda"  { LAMBDA }
+| "NULL"   { NULL }
 
 (* string literal *)
 | '"' (([' '-'!' '#'-'&' '('-'[' ']'-'~'] | '\\' [ '\\' '"' 'n' 'r' 't' '''])* as lxm) '"'  { STRING_LITERAL(lxm) }

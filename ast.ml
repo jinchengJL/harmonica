@@ -37,6 +37,7 @@ and expr =
   | Assign of id * expr
   | Call of id * expr list
   | Lambda of typ * bind list * expr
+  | Null
   | Noexpr
 
 type var_decl = 
@@ -119,6 +120,7 @@ and string_of_expr = function
   | FloatLit(f) -> "FloatLit(" ^ string_of_float f ^ ")"
   | TupleLit(elist) -> "TupleLit(" ^ String.concat ", " (List.map string_of_expr elist) ^ ")"
   | ListLit(elist) -> "ListLit(" ^ String.concat ", " (List.map string_of_expr elist) ^ ")"
+  | Null -> "NULL"
   | Id(s) -> "Id(" ^ string_of_id s ^ ")"
   | Binop(e1, o, e2) ->
       "Binop(" ^ string_of_expr e1 ^ ", " ^ string_of_op o ^ ", " ^ string_of_expr e2 ^ ")"

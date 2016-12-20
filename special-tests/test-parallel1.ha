@@ -30,4 +30,3 @@ int main() {
   printi(e.a);
   printi(f.a);
 }
-

@@ -97,7 +97,7 @@ let check (global_stmts, functions) =
                     ("printendl", FuncType([DataType(Void); DataType(String)]));
                     ("concat", FuncType([DataType(String); DataType(String); DataType(String)]));
                     ("parallel", FuncType([DataType(Int); FuncType([Any; Any]); List(Any); DataType(Int)]));
-                    ("free", FuncType([DataType(Void); List(Any)]));
+                    ("free", FuncType([DataType(Void); Any]));
                     ("malloc", FuncType([List(Any); DataType(Int)]));
                     ("mutex_create", FuncType([mutex_t]));
                     ("mutex_lock", FuncType([DataType(Int); mutex_t]));
@@ -174,6 +174,7 @@ let check (global_stmts, functions) =
          then List(canon)
          else raise (Failure ("inconsistent types in list literal " 
                               ^ string_of_expr e))
+    | Null -> Any
     | Id s -> type_of_id env s
     | Binop(e1, op, e2) as e -> 
        let t1 = expr env e1 and t2 = expr env e2 in
@@ -187,7 +188,7 @@ let check (global_stmts, functions) =
                       | _ -> DataType(Int)
                      )
                  )
-          | Equal | Neq when t1 = t2 -> DataType(Bool)
+          | Equal | Neq when typ_equal t1 t2 -> DataType(Bool)
           | Less | Leq | Greater | Geq 
                when (t1 = t2) && (t1 = DataType(Int) || t1 = DataType(Float)) 
             -> DataType(Bool)
