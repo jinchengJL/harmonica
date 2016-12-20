@@ -4,20 +4,20 @@ Harmonica Programming Language
 ## Overview 
 This is a course project PLT-Fall2016 at Columbia University.
 
-## Target
-We are implementing a mixture of Go-Python language that supports functional programming and concurrency based on OCaml -> LLVM.
-
-## Example
-A functional and parallel programming languange is perfect for scientific computing on large data sets over distributed system, i.e., large matrix / data frame manipulation, signal processing (embarrasingly parallel).
+## Goal
+We are implementing a mixture of Go-Python language that supports functional programming and concurrency based on OCaml -> LLVM. A functional and parallel programming languange is perfect for scientific computing on large data sets over distributed systems. The goal of the project is for Harmonica to be able to handle large matrix operations / data frame manipulation / signal processing computations efficiently.
 
 ## Instructions
 ------------------------------
-### Installation under Ubuntu 15.10
+### Installation under Ubuntu
 
-LLVM 3.6 is the default under 15.10, so we ask for a matching version of the
-OCaml library.
+Compiling this project requires clang-3.4, llvm-3.4, and opam 1.2. These are not the default for any Ubuntu systems we know of, so it is required to explicitly specify the version of packages you are installing.
 
-sudo apt-get install -y ocaml m4 llvm opam
+```
+sudo add-apt-repository ppa:avsm/ppa
+sudo apt-get update
+sudo apt-get install ocaml opam
+sudo apt-get install -y m4 clang-3.4 llvm-3.4
 opam init
 opam install llvm.3.6 ocamlfind
 eval `opam config env`
@@ -25,28 +25,15 @@ eval `opam config env`
 make
 ./testall.sh
 
-------------------------------
-### Installation under Ubuntu 14.04
-
-The default LLVM package is 3.4, so we install the matching OCaml
-library using opam.  The default version of opam under 14.04 is too
-old; we need to use a newer package.
-
-```
-sudo apt-get install m4 llvm software-properties-common
-
-sudo add-apt-repository --yes ppa:avsm/ppa
-sudo apt-get update -qq
-sudo apt-get install -y opam
-opam init
-
-eval `opam config env`
-
 opam install llvm.3.4 ocamlfind
 ```
 
 ------------------------------
-### Installation under OS X
+### Installation under macOS
+
+You are welcome to try to install this under macOS. We were not able to run this on Apple laptops due to clang-3.4 not being available.
+
+The following are outdated instructions for macOS.
 
 1. Install Homebrew:
 
