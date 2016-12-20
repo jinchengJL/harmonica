@@ -16,7 +16,7 @@ int main() {
   int b = 4;
   int c = 5;
   int d = 6;
-
+  
   parallel(f1, [a, b, c, d], 4);
 
   p e;

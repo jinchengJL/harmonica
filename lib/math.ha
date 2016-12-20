@@ -64,7 +64,6 @@ float ln(float x){
 
 float pow(float x, float y){
     return exp(y*ln(x));
-
 }
 
 float sqrt(float x){

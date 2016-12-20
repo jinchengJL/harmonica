@@ -47,10 +47,12 @@ void vector_T_set(vector_T v, int i, T elem) {
 void vector_T_remove(vector_T v, int i) {
   if (i >= v.length)
     print("ERROR: vector index out of bounds");
+
   int j;
   for (j = i; j < v.length - 1; j += 1) {
     v.elements[j] = v.elements[j+1];
   }
+  v.length -= 1;
 }
 
 void vector_T_destroy(vector_T v) {
