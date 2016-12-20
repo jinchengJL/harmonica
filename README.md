@@ -19,13 +19,12 @@ sudo apt-get update
 sudo apt-get install ocaml opam
 sudo apt-get install -y m4 clang-3.4 llvm-3.4
 opam init
-opam install llvm.3.6 ocamlfind
+opam install llvm.3.4 ocamlfind
 eval `opam config env`
 
 make
 ./testall.sh
 
-opam install llvm.3.4 ocamlfind
 ```
 
 ------------------------------
