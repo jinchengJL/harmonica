@@ -449,7 +449,28 @@ let translate (global_stmts, functions) =
            A.formals = blist;
            A.body = [A.Return e]
          } in
-       build_function_body env (fval, fdecl);
+       let merged_vars = 
+         StringMap.merge (fun _ xo yo ->
+                           match xo,yo with
+                           | Some x, Some _ -> Some x
+                           | None, yo -> yo
+                           | xo, None -> xo ) 
+                         env.locals
+                         env.externals
+       in
+       let hacked_vars =
+         StringMap.map
+           (fun llptr ->
+             let init = L.const_null (L.element_type (L.type_of llptr)) in
+             let var = L.define_global "" init the_module in
+             let llval = L.build_load llptr "" env.builder in
+             ignore (llstore llval var env.builder);
+             var)
+           merged_vars in
+       
+       build_function_body { env with externals = hacked_vars;
+                                      locals = StringMap.empty}
+                           (fval, fdecl);
        (env, fval)
 
   (* Fill in the body of the given function *)
@@ -535,7 +556,7 @@ let translate (global_stmts, functions) =
                debug ("struct_ptr_t = " ^ L.string_of_lltype struct_ptr_t);
                let struct_t = L.element_type struct_ptr_t in
                debug ("struct_t = "  ^ L.string_of_lltype struct_t);
-               let struct_ptr = L.build_alloca struct_ptr_t "" env.builder in
+               let struct_ptr = L.build_alloca struct_ptr_t id env.builder in
                let struct_val = L.build_malloc struct_t "" env.builder in
                ignore (llstore struct_val struct_ptr env.builder);
                struct_ptr
@@ -574,6 +595,7 @@ let translate (global_stmts, functions) =
         builder = fbuilder
       } in
 
+    (* Now translate all statments of the function *)
     let env = List.fold_left stmt init_env fdecl.A.body in
 
     (* Add a return if the last block falls off the end *)
