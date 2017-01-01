@@ -30,4 +30,5 @@ setup.log
 
 # make output
 main
+parse
 *.swp
