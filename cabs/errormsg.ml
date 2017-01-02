@@ -153,11 +153,11 @@ let warnOpt (fmt : ('a,unit,doc,unit) format4) : 'a =
 
 
 let log (fmt : ('a,unit,doc,unit) format4) : 'a = 
-  let f d = fprint !logChannel 80 d; flush !logChannel in
+  let f d = fprint !logChannel ~width:80 d; flush !logChannel in
   Pretty.gprintf f fmt
 
 let logg (fmt : ('a,unit,doc,unit) format4) : 'a =
-  let f d = fprint !logChannel 10000000 d; flush !logChannel in
+  let f d = fprint !logChannel ~width:10000000 d; flush !logChannel in
   Pretty.gprintf f fmt
 
 let null (fmt : ('a,unit,doc,unit) format4) : 'a =
@@ -167,7 +167,7 @@ let null (fmt : ('a,unit,doc,unit) format4) : 'a =
 
 let theLexbuf = ref (Lexing.from_string "")
 
-let fail format = Pretty.gprintf (fun x -> Pretty.fprint stderr 80 x; 
+let fail format = Pretty.gprintf (fun x -> Pretty.fprint stderr ~width:80 x; 
                                            raise (Failure "")) format
 
 
