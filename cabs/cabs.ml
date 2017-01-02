@@ -38,7 +38,7 @@
 (** This file was originally part of Hugues Casee's frontc 2.0, and has been 
  * extensively changed since. 
  **
- ** 1.0	3.22.99	Hugues Cassé	First version.
+ ** 1.0 3.22.99 Hugues Cassé First version.
  ** 2.0  George Necula 12/12/00: Many extensions
  **)
 
@@ -151,19 +151,31 @@ type typeSpecifier = (* Merge all specifiers into one type *)
   * function parameters and functions *)
  and single_name = specifier * name
 
-
  and enum_item = string * expression * cabsloc
+
+ and directive = 
+   DEFINE of string * string
+ | INCLUDE of string
+ | UNDEF of string
+ | IFDEF of string
+ | IFNDEF of string
+ | DIF of string
+ | DELSE
+ | DELIF of string
+ | DENDIF
+ | ERROR of string
+ | PRAGMA of expression
 
  (*
   ** Declaration definition (at toplevel)
   *)
- and definition =
+   and definition =
    FUNDEF of single_name * block * cabsloc * cabsloc
  | DECDEF of init_name_group * cabsloc        (* global variable(s), or function prototype *)
  | TYPEDEF of name_group * cabsloc
  | ONLYTYPEDEF of specifier * cabsloc
  | GLOBASM of string * cabsloc
- | PRAGMA of expression * cabsloc
+ | DIRECTIVE of directive * cabsloc
  | LINKAGE of string * cabsloc * definition list (* extern "C" { ... } *)
  (* toplevel form transformer, from the first definition to the *)
  (* second group of definitions *)
@@ -220,14 +232,13 @@ type typeSpecifier = (* Merge all specifiers into one type *)
               asm_details option * (* extra details to guide GCC's optimizer *)
                 cabsloc
 
- (** MS SEH *)
  | TRY_EXCEPT of block * expression * block * cabsloc
  | TRY_FINALLY of block * block * cabsloc
                                     
  and for_clause = 
    FC_EXP of expression
  | FC_DECL of definition
-
+                
  (*
   ** Expressions
   *)
