@@ -101,8 +101,8 @@ let roll = ref 0
 
 (* stub out the old-style manual space functions *)
 (* we may implement some of these later *)
-let new_line () = ()
-let space () = ()
+let new_line () = print "\n"
+let space () = print " "
 let indent () = ()
 let unindent () = ()
 let force_new_line () = ()
@@ -119,16 +119,16 @@ let print_unescaped_string str = print str
 let print_list print_sep print_elt lst = 
   let _ = List.fold_left
       (fun com elt ->
-	if com then print_sep ();
-	print_elt elt;
-	true)
+	      if com then print_sep ();
+	      print_elt elt;
+	      true)
       false
       lst in
   ()
 
 let print_commas nl fct lst =
-  print_list (fun () -> print ","; if nl then new_line() else space()) fct lst;
-  print_maybe ","
+  print_list (fun () -> print ","; if nl then new_line() else space()) fct lst
+  (* print_maybe "," *)
 	
 let print_string (s:string) =
   print ("\"" ^ escape_string s ^ "\"")
@@ -504,12 +504,12 @@ and print_expression_level (lvl: int) (exp : expression) =
       print_comma_exps exps
   | CONSTANT cst ->
       (match cst with
-	CONST_INT i -> print i
-      | CONST_FLOAT r -> print r
-      | CONST_CHAR c -> print ("'" ^ escape_wstring c ^ "'")
-      | CONST_WCHAR c -> print ("L'" ^ escape_wstring c ^ "'")
-      | CONST_STRING s -> print_string s
-      | CONST_WSTRING ws -> print_wstring ws)
+	       CONST_INT i -> print i
+       | CONST_FLOAT r -> print r
+       | CONST_CHAR c -> print ("'" ^ escape_wstring c ^ "'")
+       | CONST_WCHAR c -> print ("L'" ^ escape_wstring c ^ "'")
+       | CONST_STRING s -> print_string s
+       | CONST_WSTRING ws -> print_wstring ws)
   | VARIABLE name ->
       comprint "variable";
       print name
@@ -775,7 +775,7 @@ and print_attributes attrs =
 
 and print_directive = function
     DEFINE (name,s) -> print "#define "; print name; print s
-  | INCLUDE s -> print "#include "; print s
+  | INCLUDE s -> print "#include "; print s;
   | UNDEF s -> print "#undef "; print s
   | IFDEF s -> print "#ifdef "; print s
   | IFNDEF s -> print "#ifndef "; print s
@@ -858,6 +858,7 @@ and print_def def =
       setLoc(loc);
       force_new_line ();
       print_directive d;
+      new_line ();
       force_new_line ()
 
   | LINKAGE (n, loc, dl) -> 

@@ -58,6 +58,7 @@ let check (global_stmts, functions) =
      | (DataType(p1), DataType(p2)) -> p1 = p2
      | (Tuple(tlist1), Tuple(tlist2)) -> 
         List.for_all2 typ_equal tlist1 tlist2
+     | (Array(t1'), Array(t2')) -> typ_equal t1' t2'
      | (List(t1'), List(t2')) -> typ_equal t1' t2'
      | (Channel(t1'), Channel(t2')) -> typ_equal t1' t2'
      | (Struct(name1, _), Struct(name2, _)) -> name1 = name2 (* TODO: ok? *)
@@ -98,7 +99,7 @@ let check (global_stmts, functions) =
                     ("concat", FuncType([DataType(String); DataType(String); DataType(String)]));
                     ("parallel", FuncType([DataType(Int); FuncType([Any; Any]); List(Any); DataType(Int)]));
                     ("free", FuncType([DataType(Void); Any]));
-                    ("malloc", FuncType([List(Any); DataType(Int)]));
+                    ("malloc", FuncType([Array(Any); DataType(Int)]));
                     ("mutex_create", FuncType([mutex_t]));
                     ("mutex_lock", FuncType([DataType(Int); mutex_t]));
                     ("mutex_unlock", FuncType([DataType(Int); mutex_t]));
@@ -151,10 +152,11 @@ let check (global_stmts, functions) =
     | IndexId(id, e) ->
        let container_type = resolve_user_type (type_of_id env id) user_types in
        (match container_type with
-          List(t) -> (match expr env e with DataType(Int) ->
-                                            resolve_user_type t user_types
-                                          | _ -> raise (Failure "WTF. Must be int."))
-        | _ -> raise (Failure "WTF. Must be list.")
+          List(t) | Array(t) -> (
+                    match expr env e with 
+                      DataType(Int) -> resolve_user_type t user_types
+                    | _ -> raise (Failure "array / list index must be an integer."))
+        | _ -> raise (Failure (string_of_id id ^ " is not an array / list and cannot be indexed"))
        ) 
 
   (* Return the type of an expression or throw an exception *)
@@ -282,8 +284,7 @@ let check (global_stmts, functions) =
 
   (*** Checking Function Contents ***)
   let check_function fenv func =
-    List.iter (check_not_void (fun n -> "illegal void formal " ^ n ^
-                                          " in " ^ func.fname)) func.formals;
+    List.iter (check_not_void (fun n -> "illegal void formal " ^ n ^ " in " ^ func.fname)) func.formals;
 
     report_duplicate (fun n -> "duplicate formal " ^ n ^ " in " ^ func.fname)
                      (List.map snd func.formals);

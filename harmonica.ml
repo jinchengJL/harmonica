@@ -8,7 +8,7 @@ let _ =
                  List.assoc Sys.argv.(1) [ ("-a", Ast);      (* Print the AST only *)
                                            ("-p", Print);  (* Generate and print C *)
                                            ("-c", Compile) ] (* Generate and compile C *)
-  else Compile in
+  else Print in
   let lexbuf = Lexing.from_channel stdin in
   let ast = Parser.program Scanner.token lexbuf in
   Semant.check ast;

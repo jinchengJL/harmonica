@@ -52,6 +52,7 @@ rule token = parse
 | "void"   { VOID }
 | "tuple"  { TUPLE }
 | "list"   { LIST }
+| "array"  { ARRAY }
 | "struct" { STRUCT_STMT }
 | "true"   { TRUE }
 | "false"  { FALSE }

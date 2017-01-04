@@ -50,7 +50,7 @@ type cabsloc = {
     lineno : int;
     filename: string;
     byteno: int;
-    ident : int;
+    ident: int;
   }
 
 type typeSpecifier = (* Merge all specifiers into one type *)
@@ -121,7 +121,7 @@ type typeSpecifier = (* Merge all specifiers into one type *)
    (* Prints "decl [ attrs exp ]".
     * decl is never a PTR. *)
    | PTR of attribute list * decl_type      (* Prints "* attrs decl" *)
-   | PROTO of decl_type * single_name list * bool 
+   | PROTO of decl_type * single_name list * bool
  (* Prints "decl (args[, ...])".
   * decl is never a PTR.*)
 
@@ -140,7 +140,7 @@ type typeSpecifier = (* Merge all specifiers into one type *)
  (* The decl_type is in the order in which they are printed. Only the name of
   * the declared identifier is pulled out. The attributes are those that are
   * printed after the declarator *)
- (* e.g: in "int *x", "*x" is the declarator; "x" will be pulled out as *)
+ (* e.g: in "int *x", "*x " is the declarator; "x" will be pulled out as *)
  (* the string, and decl_type will be PTR([], JUSTBASE) *)
  and name = string * decl_type * attribute list * cabsloc
 

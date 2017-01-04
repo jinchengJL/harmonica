@@ -7,8 +7,8 @@ let getident () =
     !nextident
 
 let cabslu = {lineno = -10; 
-	      filename = "cabs loc unknown"; 
-	      byteno = -10;
+	            filename = "cabs loc unknown"; 
+	            byteno = -10;
               ident = 0}
 
 

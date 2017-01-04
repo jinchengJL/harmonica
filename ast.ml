@@ -10,6 +10,8 @@ type primitive = Int | Bool | Void | String | Float
 type typ = 
     DataType of primitive 
   | Tuple of typ list
+  | Array of typ
+  (* TODO: container types / templates *)
   | List of typ
   | Channel of typ
   | Struct of string * bind list
@@ -30,6 +32,8 @@ and expr =
   | StringLit of string
   | FloatLit of float
   | TupleLit of expr list
+  (* there is no array literal *)
+  (* arrays can be initialized with malloc *)
   | ListLit of expr list
   | Id of id
   | Binop of expr * op * expr
@@ -97,6 +101,7 @@ let rec string_of_typ = function
   | DataType(String) -> "String"
   | Any -> "Any"
   | Tuple(tlist) -> "Tuple(" ^ string_of_tlist tlist ^ ")"
+  | Array(t) -> "Array(" ^ string_of_typ t ^ ")"
   | List(t) -> "List(" ^ string_of_typ t ^ ")"
   | Struct(id, blist) -> "Struct(" ^ id ^ ", " ^ string_of_blist blist ^ ")"
   | Channel(t) -> "Channel(" ^ string_of_typ t ^ ")"
