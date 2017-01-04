@@ -67,8 +67,9 @@ let translate (global_stmts, functions) =
                                  []))
                      true
     (* TODO: implement lists = dynamic arrays *)
+    | A.List(_) -> raise (Failure "ctype_of_typ: Lists")
     (* TODO: rename this to array *)
-    | A.List(t) ->
+    | A.Array(t) ->
        let (spec, declt) = ctype_of_typ t in
        (spec, C.PTR ([], declt))
     (* TODO: channels *)
@@ -105,15 +106,35 @@ let translate (global_stmts, functions) =
                      C.battrs  = [];
                      C.bstmts  = cslist } in
       (env', C.BLOCK (cblock, stubloc))
+    | A.Expr e -> 
+       let (env', cexpr) = expr env e in
+       (env', C.COMPUTATION (cexpr, stubloc))
+    | A.Return e ->
+       let (env', cexpr) = expr env e in
+       (env', C.RETURN (cexpr, stubloc))
+    | A.Local vd ->
+       begin match vd with
+         A.Bind (t, id) ->
+         let (spec, declt) = ctype_of_typ t in
+         let def = C.DECDEF ((spec, [((id, declt, [], stubloc), C.NO_INIT)]), stubloc) in
+         (env, C.DEFINITION def)
+       | A.Binass(t, id, e) ->
+         let (spec, declt) = ctype_of_typ t in
+         let (env', cexp) = expr env e in
+         let def = C.DECDEF ((spec, [((id, declt, [], stubloc), C.SINGLE_INIT cexp)]), stubloc) in
+         (env', C.DEFINITION def)
+       end
     | _ -> raise (Failure "stmt: not yet implemented")
 
   (* Returns (env, list of C statements) *)
   and stmt_list env slist = 
-    List.fold_left (fun (e, acc) s ->
-                     let (e', cstmt) = stmt e s in
-                     (e', cstmt :: acc))
-                   (env, [])
-                   slist
+    let (env', cslist) = List.fold_left (fun (e, acc) s ->
+                                          let (e', cstmt) = stmt e s in
+                                          (e', cstmt :: acc))
+                                        (env, [])
+                                        slist
+    in
+    (env', List.rev cslist)
   in
 
   let func env f =
@@ -145,7 +166,11 @@ let translate (global_stmts, functions) =
   in
 
   let gstmt env = function
-      A.Global(vd) -> 
+      A.Typedef (t, id) ->
+      let (spec, declt) = ctype_of_typ t in
+      let def = C.DECDEF ((C.SpecTypedef :: spec, [((id, declt, [], stubloc), C.NO_INIT)]), stubloc) in
+      {env with program = def :: env.program}
+    | A.Global vd -> 
       begin match vd with
         A.Bind(t, id) ->
         let (spec, declt) = ctype_of_typ t in
@@ -157,7 +182,6 @@ let translate (global_stmts, functions) =
          let def = C.DECDEF ((spec, [((id, declt, [], stubloc), C.SINGLE_INIT cexp)]), stubloc) in
          {env' with program = def :: env'.program}
       end
-    | _ -> env
   in
   
   let genv = List.fold_left gstmt initial_env global_stmts in
