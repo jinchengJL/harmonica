@@ -1,3 +1,9 @@
 #!/bin/bash
 
-python preprocess.py $@ | ./harmonica.native
+TMP=`mktemp`
+TMPC=$TMP.c
+TMPO=$TMP
+cat lib/builtins.c > $TMPC
+python preprocess.py $@ | ./harmonica.native >> $TMPC
+gcc $TMPC -o $TMPO
+exec $TMPO

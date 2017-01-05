@@ -6,9 +6,7 @@
 #  Compile and check the error of each expected-to-fail test
 
 CC="gcc"
-
-# Path to the microc compiler.  Usually "./microc.native"
-# Try "_build/microc.native" if ocamlbuild was unable to create a symbolic link.
+COMPILE="./compile"
 HARMONICA="./harmonica.native"
 #HARMONICA="_build/harmonica.native"
 
@@ -84,9 +82,7 @@ Check() {
     generatedfiles=""
 
     generatedfiles="$generatedfiles ${basename}.c ${basename}.exec ${basename}.out" &&
-    Run "$HARMONICA" "<" $1 ">" "${basename}.c" &&
-    Run "$CC" "${basename}.c" "-o" "${basename}.exec" &&
-    Run "${basename}.exec" ">" "${basename}.out"
+    Run "$COMPILE" $1 ">" "${basename}.out" &&
     Compare ${basename}.out ${reffile}.out ${basename}.diff
 
     # Report the status and clean up the generated files

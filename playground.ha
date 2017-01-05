@@ -10,10 +10,6 @@ int plus1(int x) {
 }
 
 int main(int argc, array[string] argv) {
-#    array[int] iarr = malloc(10);
-#    printi(iarr[3]);
-#    int a = 3;
-
     person p = NULL;
     array[int] a;
 
@@ -29,5 +25,5 @@ int main(int argc, array[string] argv) {
       j += plus1(i);
     }
 
-    return a[0];
+    return 0;
 }
