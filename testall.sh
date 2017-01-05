@@ -5,9 +5,7 @@
 #  Compile, run, and check the output of each expected-to-work test
 #  Compile and check the error of each expected-to-fail test
 
-# Path to the LLVM interpreter
-LLI="lli"
-# LLI="/usr/local/opt/llvm/bin/lli"
+CC="gcc"
 
 # Path to the microc compiler.  Usually "./microc.native"
 # Try "_build/microc.native" if ocamlbuild was unable to create a symbolic link.
@@ -85,9 +83,10 @@ Check() {
 
     generatedfiles=""
 
-    generatedfiles="$generatedfiles ${basename}.ll ${basename}.out" &&
-    Run "$HARMONICA" "<" $1 ">" "${basename}.ll" &&
-    Run "$LLI" "${basename}.ll" ">" "${basename}.out" &&
+    generatedfiles="$generatedfiles ${basename}.c ${basename}.exec ${basename}.out" &&
+    Run "$HARMONICA" "<" $1 ">" "${basename}.c" &&
+    Run "$CC" "${basename}.c" "-o" "${basename}.exec" &&
+    Run "${basename}.exec" ">" "${basename}.out"
     Compare ${basename}.out ${reffile}.out ${basename}.diff
 
     # Report the status and clean up the generated files
@@ -148,15 +147,6 @@ while getopts kdpsh c; do
 done
 
 shift `expr $OPTIND - 1`
-
-LLIFail() {
-  echo "Could not find the LLVM interpreter \"$LLI\"."
-  echo "Check your LLVM installation and/or modify the LLI variable in testall.sh"
-  exit 1
-}
-
-which "$LLI" >> $globallog || LLIFail
-
 
 if [ $# -ge 1 ]
 then

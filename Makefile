@@ -14,10 +14,10 @@ harmonica.native : scanner.mll parser.mly ast.ml semant.ml ccodegen.ml
 clean :
 	ocamlbuild -clean
 	rm -rf testall.log *.diff harmonica scanner.ml parser.ml parser.mli
-	rm -rf *.err *.ll
+	rm -rf *.err *.c *.exec *.out
 	rm -rf *.cmx *.cmi *.cmo *.o
 	rm -rf cabs/*.cmx cabs/*.cmi cabs/*.cmo cabs/*.o
-	rm -rf *~ \#* *.out
+	rm -rf *~ \#*
 
 # More detailed: build using ocamlc/ocamlopt + ocamlfind
 

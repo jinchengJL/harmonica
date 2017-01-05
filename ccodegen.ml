@@ -30,6 +30,7 @@ let translate (global_stmts, functions) =
                   C.filename = outfile;
                   C.byteno = 0;
                   C.ident = 0 } in
+  let prefix = "_ha_" in
 
   (* user-defined types *)
   (* let user_types = List.fold_left *)
@@ -68,11 +69,9 @@ let translate (global_stmts, functions) =
                      true
     (* TODO: implement lists = dynamic arrays *)
     | A.List(_) -> raise (Failure "ctype_of_typ: Lists")
-    (* TODO: rename this to array *)
     | A.Array(t) ->
        let (spec, declt) = ctype_of_typ t in
        (spec, C.PTR ([], declt))
-    (* TODO: channels *)
     | A.Struct(name, blist) ->
        let bind_to_field_group (t, fname) =
          let (spec, declt) = ctype_of_typ t in
@@ -86,17 +85,76 @@ let translate (global_stmts, functions) =
                                  []))
                      true
     | A.UserType(n) -> ctype_of_spec (C.Tnamed n) false
-    (* TODO *)
+    (* TODO: FuncType *)
     | A.FuncType(_) -> raise (Failure "ctype_of_typ: haven't figured out how functions work yet")
     | _ -> raise (Failure "ctype_of_typ: not yet implemented")
   in
 
-  let expr env = function
+  let rec expr env = function
       A.IntLit i -> (env, C.CONSTANT (C.CONST_INT (string_of_int i)))
     | A.BoolLit b -> (env, C.CONSTANT (C.CONST_INT (if b then "1" else "0")))
     | A.StringLit s -> (env, C.CONSTANT (C.CONST_STRING s))
     | A.FloatLit f -> (env, C.CONSTANT (C.CONST_FLOAT (string_of_float f)))
-    | _ -> raise (Failure "expr: not yet implemented")
+    | A.TupleLit _ -> raise (Failure "expr: TUPLELIT")
+    | A.ListLit _ -> raise (Failure "expr: LISTLIT")
+    | A.Id id -> 
+       begin match id with
+         A.NaiveId n -> (env, C.VARIABLE n)
+       | A.MemberId (id, field) -> 
+          let (env', container) = expr env (A.Id id) in
+          (env', C.MEMBEROFPTR (container, field))
+       | A.IndexId (id, index_expr) -> 
+          let (env', index) = expr env index_expr in
+          let (env'', container) = expr env' (A.Id id) in
+          (env'', C.INDEX (container, index))
+       end
+    | A.Binop (e1, bop, e2) ->
+       let (env, ce1) = expr env e1 in
+       let (env, ce2) = expr env e2 in
+       let cbop = match bop with
+           A.Add -> C.ADD
+         | A.Sub -> C.SUB
+         | A.Mult -> C.MUL
+         | A.Div -> C.MOD
+         | A.Equal -> C.EQ
+         | A.Neq -> C.NE
+         | A.Less -> C.LT
+         | A.Leq -> C.LE
+         | A.Greater -> C.GT
+         | A.Geq -> C.GE
+         | A.And -> C.AND
+         | A.Or -> C.OR
+       in
+       (env, C.BINARY (cbop, ce1, ce2))
+    | A.Unop (uop, e) ->
+       let (env, ce) = expr env e in
+       let cuop = match uop with
+           A.Neg -> C.MINUS
+         | A.Not -> C.NOT
+       in
+       (env, C.UNARY (cuop, ce))
+    | A.Assign (id, e) ->
+       let (env, ce1) = expr env (A.Id id) in
+       let (env, ce2) = expr env e in
+       (env, C.BINARY (C.ASSIGN, ce1, ce2))
+    (* TODO: there should probably be something different for lambdas *)
+    | A.Call (id, elist) -> 
+       let fid = match id with
+           A.NaiveId n -> A.NaiveId (prefix ^ n)
+         | _ -> id
+       in
+       let (env, caller) = expr env (A.Id fid) in
+       let (env, callee) = List.fold_left 
+                             (fun (env', acc) e ->
+                               let (env'', ce) = expr env' e in
+                               (env'', ce :: acc))
+                             (env, [])
+                             elist
+       in
+       (env, C.CALL (caller, callee))
+    | A.Lambda _ -> raise (Failure "expr: LAMBDA")
+    | A.Null -> (env, C.CONSTANT (C.CONST_INT "0"))
+    | A.Noexpr -> (env, C.NOTHING)
   in
 
   let rec stmt env = function
@@ -112,6 +170,24 @@ let translate (global_stmts, functions) =
     | A.Return e ->
        let (env', cexpr) = expr env e in
        (env', C.RETURN (cexpr, stubloc))
+    | A.If (e, st1, st2) ->
+       let (env1, cexpr) = expr env e in
+       let (env2, cst1)  = stmt env1 st1 in
+       let (env3, cst2)  = stmt env2 st2 in
+       ({env with program = env3.program}, 
+        C.IF (cexpr, cst1, cst2, stubloc))
+    | A.For (e1, e2, e3, st) ->
+       let (env1, ce1) = expr env e1 in
+       let (env2, ce2) = expr env1 e2 in
+       let (env3, ce3) = expr env2 e3 in
+       let (env4, cst) = stmt env3 st in
+       ({env with program = env4.program},
+       C.FOR (C.FC_EXP ce1, ce2, ce3, cst, stubloc))
+    | A.While (e, st) ->
+       let (env1, ce) = expr env e in
+       let (env2, cst) = stmt env1 st in
+       ({env with program = env2.program},
+       C.WHILE (ce, cst, stubloc))
     | A.Local vd ->
        begin match vd with
          A.Bind (t, id) ->
@@ -124,7 +200,6 @@ let translate (global_stmts, functions) =
          let def = C.DECDEF ((spec, [((id, declt, [], stubloc), C.SINGLE_INIT cexp)]), stubloc) in
          (env', C.DEFINITION def)
        end
-    | _ -> raise (Failure "stmt: not yet implemented")
 
   (* Returns (env, list of C statements) *)
   and stmt_list env slist = 
@@ -149,7 +224,8 @@ let translate (global_stmts, functions) =
     let fdeclt = C.PROTO (C.JUSTBASE, 
                           List.map bind_to_single_name f.A.formals, 
                           false) in
-    let fsingle_name = (ret_spec, (f.A.fname, fdeclt, [], stubloc)) in
+    let fname = if f.A.fname = "main" then f.A.fname else prefix ^ f.A.fname in
+    let fsingle_name = (ret_spec, (fname, fdeclt, [], stubloc)) in
     (* MAYBE: update env.externals and locals here *)
     let (env', cslist) = stmt_list env f.A.body in
     let cblock = { C.blabels = [];
