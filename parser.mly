@@ -9,7 +9,7 @@ open Ast
 %token CPLUS CMINUS
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR
 %token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID TUPLE LIST ARRAY STRUCT_STMT TYPEDEF
-%token CHANNEL PARALLEL CHAN LAMBDA
+%token CHANNEL PARALLEL CHAN LAMBDA SIZEOF
 %token NULL
 %token <int> INT_LITERAL
 %token <float> FLOAT_LITERAL
@@ -166,6 +166,7 @@ expr:
   | PARALLEL LPAREN actuals_opt RPAREN { Call(NaiveId("parallel"), $3) }
   | CHAN LPAREN chan_actuals_opt RPAREN { Call(NaiveId("chan"), $3) }
   | LAMBDA LPAREN formals_opt RPAREN typ LPAREN expr RPAREN { Lambda($5, $3, $7) }
+  | SIZEOF LPAREN typ RPAREN { SizeofTyp($3) }
   | LPAREN expr RPAREN { $2 }
 
 primitives:

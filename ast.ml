@@ -41,6 +41,7 @@ and expr =
   | Assign of id * expr
   | Call of id * expr list
   | Lambda of typ * bind list * expr
+  | SizeofTyp of typ
   | Null
   | Noexpr
 
@@ -135,6 +136,8 @@ and string_of_expr = function
      "Call(" ^ string_of_id f ^ ", " ^ String.concat ", " (List.map string_of_expr el) ^ ")"
   | Lambda(rt, blist, e) ->
      "Lambda(" ^ string_of_typ rt ^ ", " ^ string_of_blist blist ^ ", " ^ string_of_expr e ^ ")"
+  | SizeofTyp(t) ->
+     "SizeofTyp(" ^ string_of_typ t ^ ")"
   | Noexpr -> "Noexpr"
 
 

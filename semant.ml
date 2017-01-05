@@ -214,7 +214,6 @@ let check (global_stmts, functions) =
         | _ -> raise (Failure ("illegal unary operator " ^ string_of_uop op ^
                                  string_of_typ t ^ " in " ^ string_of_expr ex)))
          
-    | Noexpr -> DataType(Void)
     | Assign(var, e) as ex -> let lt = type_of_id env var
                               and rt = expr env e in
                               check_assign lt rt (Failure ("illegal assignment " ^ string_of_typ lt ^
@@ -257,6 +256,8 @@ let check (global_stmts, functions) =
        then FuncType(rt :: (List.map fst blist))
        else raise (Failure ("expression does not match lambda return type: found " ^
                               string_of_typ et ^ ", expected " ^ string_of_typ rt))
+    | SizeofTyp(_) -> DataType(Int)
+    | Noexpr -> DataType(Void)
   in
 
   let add_vdecl env = function

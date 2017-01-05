@@ -61,6 +61,7 @@ rule token = parse
 | "chan"    { CHAN }
 | "parallel" { PARALLEL }
 | "lambda"  { LAMBDA }
+| "sizeof" { SIZEOF }
 | "NULL"   { NULL }
 
 (* string literal *)

@@ -1,18 +1,12 @@
+# mod function for natural numbers
 int mod(int a, int b) {
-  # mod function for natural numbers
-  int x;
-  int y;
-  if (a>b){
-    x = a;
-    y = b;
-  }else{
+  if (a < b)
     return a;
-  }
 
-  while (x >= y){
-    x = x - y;
-  }
-  return x;
+  while (a >= b)
+    a -= b;
+
+  return a;
 }
 
 int isPrime(int a){

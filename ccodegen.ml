@@ -95,6 +95,7 @@ let translate (global_stmts, functions) =
     | A.BoolLit b -> (env, C.CONSTANT (C.CONST_INT (if b then "1" else "0")))
     | A.StringLit s -> (env, C.CONSTANT (C.CONST_STRING s))
     | A.FloatLit f -> (env, C.CONSTANT (C.CONST_FLOAT (string_of_float f)))
+    (* TODO *)
     | A.TupleLit _ -> raise (Failure "expr: TUPLELIT")
     | A.ListLit _ -> raise (Failure "expr: LISTLIT")
     | A.Id id -> 
@@ -115,7 +116,7 @@ let translate (global_stmts, functions) =
            A.Add -> C.ADD
          | A.Sub -> C.SUB
          | A.Mult -> C.MUL
-         | A.Div -> C.MOD
+         | A.Div -> C.DIV
          | A.Equal -> C.EQ
          | A.Neq -> C.NE
          | A.Less -> C.LT
@@ -125,18 +126,18 @@ let translate (global_stmts, functions) =
          | A.And -> C.AND
          | A.Or -> C.OR
        in
-       (env, C.BINARY (cbop, ce1, ce2))
+       (env, C.BINARY (cbop, C.PAREN ce1, C.PAREN ce2))
     | A.Unop (uop, e) ->
        let (env, ce) = expr env e in
        let cuop = match uop with
            A.Neg -> C.MINUS
          | A.Not -> C.NOT
        in
-       (env, C.UNARY (cuop, ce))
+       (env, C.UNARY (cuop, C.PAREN ce))
     | A.Assign (id, e) ->
        let (env, ce1) = expr env (A.Id id) in
        let (env, ce2) = expr env e in
-       (env, C.BINARY (C.ASSIGN, ce1, ce2))
+       (env, C.BINARY (C.ASSIGN, ce1, C.PAREN ce2))
     (* TODO: there should probably be something different for lambdas *)
     | A.Call (id, elist) -> 
        let fid = match id with
@@ -151,8 +152,12 @@ let translate (global_stmts, functions) =
                              (env, [])
                              elist
        in
-       (env, C.CALL (caller, callee))
+       (env, C.CALL (caller, List.rev callee))
+    (* TODO: lambdas *)
     | A.Lambda _ -> raise (Failure "expr: LAMBDA")
+    | A.SizeofTyp t ->
+       let (spec, declt) = ctype_of_typ t in
+       (env, C.TYPE_SIZEOF (spec, declt))
     | A.Null -> (env, C.CONSTANT (C.CONST_INT "0"))
     | A.Noexpr -> (env, C.NOTHING)
   in
