@@ -2,12 +2,12 @@
 Harmonica Programming Language
 
 ## Overview
-This started a course project at Columbia University and I'm now using it to experiment with language features just for fun.
+This started as a course project at Columbia University and I'm now using it to experiment with language features just for fun.
 
 Harmonica is a mixture of Go-Python language with support for functional programming and concurrency.
 
 ## Instructions
-------------------------------
+
 ### Installation under Ubuntu
 
 Currently Ubuntu is the only supported system. We are doing some clang-to-llvm bindings which requires the proper clang version that's not available on macOS/Windows, so getting it to work on other platforms would be very cumbersome.
