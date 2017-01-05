@@ -86,7 +86,7 @@ let translate (global_stmts, functions) =
                      true
     | A.UserType(n) -> ctype_of_spec (C.Tnamed n) false
     (* TODO: FuncType *)
-    | A.FuncType(_) -> raise (Failure "ctype_of_typ: haven't figured out how functions work yet")
+    | A.FuncType(_) -> raise (Failure "ctype_of_typ: FuncType")
     | _ -> raise (Failure "ctype_of_typ: not yet implemented")
   in
 
@@ -213,15 +213,14 @@ let translate (global_stmts, functions) =
   in
 
   let func env f =
-    (* TODO: find out where ret_declt fits in *)
-    let (ret_spec, _) = ctype_of_typ f.A.typ in
+    let (ret_spec, ret_declt) = ctype_of_typ f.A.typ in
     let bind_to_single_name (bt, bname) =
       let (spec, declt) = ctype_of_typ bt in
       let sname = (bname, declt, [], stubloc) in
       (spec, sname)
     in
     (* NOTE: last parameter to C.PROTO indicates if this is a varg function *)
-    let fdeclt = C.PROTO (C.JUSTBASE, 
+    let fdeclt = C.PROTO (ret_declt,
                           List.map bind_to_single_name f.A.formals, 
                           false) in
     let fname = if f.A.fname = "main" then f.A.fname else prefix ^ f.A.fname in

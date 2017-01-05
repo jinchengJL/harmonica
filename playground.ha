@@ -9,8 +9,17 @@ int plus1(int x) {
   return x + 1;
 }
 
+person person() {
+  person p;
+  return p;
+}
+
+array[int] newArray() {
+  return alloc(10);
+}
+
 int main(int argc, array[string] argv) {
-    person p = NULL;
+    person p = person();
     array[int] a;
 
     if (true) {

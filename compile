@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -e
+
 TMP=`mktemp`
 TMPC=$TMP.c
 TMPO=$TMP
