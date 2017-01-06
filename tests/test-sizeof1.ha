@@ -4,6 +4,7 @@ struct person {
 person p;
 
 int main() {
+  printi(sizeof(int));
   printi(sizeof(person));
   return 0;
 }
