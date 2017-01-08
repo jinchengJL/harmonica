@@ -15,7 +15,9 @@ type typ =
   | List of typ
   | Channel of typ
   | Struct of string * bind list
+  | ParamStruct of string * string * bind list
   | UserType of string
+  | ParamType of string
   | FuncType of typ list
   | Any
 
@@ -52,6 +54,7 @@ type var_decl =
 type global_stmt =
     Typedef of typ * string
   | Global of var_decl
+  | TypeParam of string
 
 type stmt =
     Block of stmt list

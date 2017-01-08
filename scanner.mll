@@ -62,6 +62,7 @@ rule token = parse
 | "parallel" { PARALLEL }
 | "lambda"  { LAMBDA }
 | "sizeof" { SIZEOF }
+| "type"   { TYPE }
 | "NULL"   { NULL }
 
 (* string literal *)

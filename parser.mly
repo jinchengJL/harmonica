@@ -8,7 +8,7 @@ open Ast
 %token PLUS MINUS TIMES DIVIDE ASSIGN NOT
 %token CPLUS CMINUS
 %token EQ NEQ LT LEQ GT GEQ TRUE FALSE AND OR
-%token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID TUPLE LIST ARRAY STRUCT_STMT TYPEDEF
+%token RETURN IF ELSE FOR WHILE INT FLOAT BOOL STRING VOID TUPLE LIST ARRAY STRUCT_STMT TYPEDEF TYPE
 %token CHANNEL PARALLEL CHAN LAMBDA SIZEOF
 %token NULL
 %token <int> INT_LITERAL
@@ -89,6 +89,7 @@ global:
     STRUCT_STMT ID LBRACE bind_list RBRACE SEMI { Typedef(Struct($2, List.rev $4), $2) }
   | TYPEDEF typ ID SEMI { Typedef($2, $3) }
   | vdecl { Global($1) }
+  | TYPE ID SEMI { TypeParam($2) }
 
 bind_list:
     /* nothing */ { [] }

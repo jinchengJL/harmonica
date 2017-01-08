@@ -18,6 +18,10 @@ array[int] newArray() {
   return alloc(10);
 }
 
+<int> main = lambda () int {
+
+}
+
 int main(int argc, array[string] argv) {
     person p = person();
     array[int] a;
@@ -35,4 +39,40 @@ int main(int argc, array[string] argv) {
     }
 
     return 0;
+}
+
+
+# file: list.ha
+
+type T;
+
+struct list {
+  array[T] elems;
+  int len;
+  int memsize;
+  <T void> append;
+  <int void> remove;
+  <int> size;
+};
+
+void list_append(list[T] this, T elem) {
+  
+}
+
+list[T] newlist() {
+  list[T] lst = alloc(sizeof(list));
+  list.elems = alloc(4 * sizeof(T));
+  list.len = 0;
+  list.memsize = 4;
+  list.append = lambda (T elem) void {
+    list_append(lst, elem);
+  }
+}
+
+
+# file: main.ha
+import list
+
+int main() {
+  list[int] lst;
 }
