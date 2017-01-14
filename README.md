@@ -2,7 +2,7 @@
 Harmonica Programming Language
 
 ## Overview
-This started as a course project at Columbia University and I'm now using it to experiment with language features just for fun.
+This was a course project at Columbia University.
 
 Harmonica is a mixture of Go-Python language with support for functional programming and concurrency.
 
